@@ -6,6 +6,8 @@ rust:
     cargo test --workspace --locked
     cargo build --workspace --locked
     uv run --locked python core/tests/faults/recovery.py
+    uv run --locked python core/tests/driver_swap.py
+    uv run --locked pytest -q capture/tests/test_virtual_radio.py
 
 python:
     uv run --locked ruff check .
@@ -18,3 +20,6 @@ web:
 
 image: web
     uv run --locked python image/dry_run.py
+
+golden-render:
+    uv run --locked pytest drivers/tests/test_golden.py

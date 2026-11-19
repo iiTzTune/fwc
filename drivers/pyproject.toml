@@ -2,6 +2,7 @@
 name = "fwc-drivers"
 version = "0.1.0"
 requires-python = ">=3.11,<3.14"
+dependencies = ["Pillow>=10.1"]
 
 [build-system]
 requires = ["uv_build>=0.13,<0.14"]
@@ -9,3 +10,15 @@ build-backend = "uv_build"
 
 [tool.uv.build-backend]
 module-name = "fwc.drivers"
+
+[project.entry-points."fwc.drivers.display"]
+dummy = "fwc.drivers.dummy:Display"
+
+[project.entry-points."fwc.drivers.power"]
+dummy = "fwc.drivers.dummy:Power"
+
+[project.entry-points."fwc.drivers.indicator"]
+dummy = "fwc.drivers.dummy:Indicator"
+
+[project.entry-points."fwc.drivers.input"]
+dummy = "fwc.drivers.dummy:Input"

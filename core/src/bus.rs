@@ -1,4 +1,7 @@
-use crate::state::Store;
+use crate::{
+    drivers::{Operation, Registry},
+    state::Store,
+};
 use anyhow::{Result, ensure};
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -31,6 +34,9 @@ pub enum Request {
         topic: String,
     },
     Snapshot,
+    Driver {
+        request: Operation,
+    },
 }
 impl Request {
     pub fn parse(line: &[u8]) -> Result<Self> {
@@ -43,7 +49,7 @@ impl Request {
             Self::Subscribe { topic } | Self::Metric { topic, .. } => {
                 ensure!(key(topic), "invalid topic")
             }
-            Self::Snapshot => (),
+            Self::Snapshot | Self::Driver { .. } => (),
         }
         Ok(r)
     }
@@ -95,6 +101,7 @@ struct Client {
 }
 pub struct Bus {
     store: Store,
+    drivers: Rc<tokio::sync::Mutex<Registry>>,
     clients: HashMap<u64, Client>,
     next: u64,
     pub services: Value,
@@ -104,9 +111,10 @@ pub struct Bus {
 }
 pub type Shared = Rc<RefCell<Bus>>;
 impl Bus {
-    pub fn new(store: Store) -> Shared {
+    pub fn new(store: Store, drivers: Registry) -> Shared {
         Rc::new(RefCell::new(Self {
             store,
+            drivers: Rc::new(tokio::sync::Mutex::new(drivers)),
             clients: HashMap::new(),
             next: 0,
             services: json!([]),
@@ -114,6 +122,9 @@ impl Bus {
             dropped: 0,
             overflows: 0,
         }))
+    }
+    pub fn drivers(&self) -> Rc<tokio::sync::Mutex<Registry>> {
+        self.drivers.clone()
     }
     fn send(&mut self, id: u64, f: Frame) {
         let c = self.clients.get_mut(&id).unwrap();
@@ -141,6 +152,7 @@ impl Bus {
     }
     fn handle(&mut self, id: u64, r: Request) -> Result<Value> {
         match r {
+            Request::Driver { .. } => unreachable!("driver requests run asynchronously"),
             Request::Subscribe { topic } => {
                 self.clients.get_mut(&id).unwrap().topic = Some(topic);
                 Ok(json!({"ok":true}))
@@ -202,11 +214,25 @@ impl Bus {
                     if n == 0 || n as u64 > LIMIT || bytes.last() != Some(&b'\n') {
                         break;
                     }
+                    let result = match Request::parse(&bytes) {
+                        Ok(Request::Driver { request }) => {
+                            let registry = bus.borrow().drivers.clone();
+
+                            match registry.try_lock() {
+                                Ok(guard) => guard
+                                    .execute(request)
+                                    .await
+                                    .map(|data| json!({"ok":true,"data":data})),
+                                Err(_) => Err(anyhow::anyhow!("driver busy")),
+                            }
+                        }
+                        Ok(request) => bus.borrow_mut().handle(id, request),
+                        Err(error) => Err(error),
+                    };
+                    let reply = result
+                        .unwrap_or_else(|error| json!({"ok":false,"message":format!("{error:#}")}));
                     {
                         let mut b = bus.borrow_mut();
-                        let reply = Request::parse(&bytes)
-                            .and_then(|r| b.handle(id, r))
-                            .unwrap_or_else(|e| json!({"ok":false,"message":e.to_string()}));
                         b.send(id, Frame::new(reply, false));
                         if b.clients[&id].closed {
                             break;

@@ -29,7 +29,9 @@ startup. Linux terminates direct worker processes when their supervisor dies.
 An optional absolute `watchdog` path selects the board's Linux watchdog
 device. The supervisor feeds it after each successful service check. The
 device's configured timeout must exceed the longest expected check. SIGTERM
-or SIGINT stops workers and writes the driver's magic-close byte. Driver and
+or SIGINT asks all workers to stop with SIGTERM. The core feeds the watchdog
+during a shared two-second cleanup window, terminates any remaining workers,
+reaps them, and writes the driver's magic-close byte. Driver and
 board settings determine whether orderly close can disarm the timer.
 
 To verify on a designated test board, configure its watchdog, start the core,
@@ -78,3 +80,7 @@ serving clients. Keep SQLite's companion files with the database.
 at 1 MiB with one previous file, `core.jsonl.1`. Snapshot counters cover
 the current process lifetime. To repeat the process recovery check, run
 `cargo build && uv run python core/tests/faults/recovery.py`.
+
+Configured hardware is available through the bus's `driver` operation.
+Driver selections, operation payloads and diagnostic rendering are described
+in the [hardware interface reference](../drivers/README.md).

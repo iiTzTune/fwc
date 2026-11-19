@@ -1,4 +1,4 @@
-use crate::state::Log;
+use crate::{drivers::Registry, state::Log};
 use anyhow::{Result, ensure};
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -18,6 +18,8 @@ pub struct Config {
     #[serde(default)]
     services: Vec<Service>,
     pub watchdog: Option<PathBuf>,
+    #[serde(default)]
+    pub drivers: Registry,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -31,6 +33,7 @@ struct Service {
 impl Config {
     pub fn parse(input: &str) -> Result<Self> {
         let c: Self = serde_json::from_str(input)?;
+        c.drivers.validate()?;
         let mut names = HashSet::new();
         for s in &c.services {
             ensure!(
@@ -86,6 +89,22 @@ pub struct Supervisor {
     watchdog: Option<File>,
 }
 
+pub(crate) fn terminate_with_core(cmd: &mut Command) {
+    let parent = std::process::id();
+    // Only async-signal-safe system calls run between fork and exec.
+    unsafe {
+        cmd.pre_exec(move || {
+            if libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGKILL) != 0 {
+                return Err(std::io::Error::last_os_error());
+            }
+            if libc::getppid() as u32 != parent {
+                libc::_exit(1)
+            }
+            Ok(())
+        });
+    }
+}
+
 impl Supervisor {
     pub fn new(config: Config) -> Result<Self> {
         let watchdog = config
@@ -130,19 +149,7 @@ impl Supervisor {
             w.starts += 1;
             let mut cmd = Command::new(&w.spec.command[0]);
             cmd.args(&w.spec.command[1..]);
-            let parent = std::process::id();
-            // Only async-signal-safe system calls run between fork and exec.
-            unsafe {
-                cmd.pre_exec(move || {
-                    if libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGKILL) != 0 {
-                        return Err(std::io::Error::last_os_error());
-                    }
-                    if libc::getppid() as u32 != parent {
-                        libc::_exit(1)
-                    }
-                    Ok(())
-                });
-            }
+            terminate_with_core(&mut cmd);
             match cmd.spawn() {
                 Ok(child) => {
                     w.child = Some(child);
@@ -162,12 +169,47 @@ impl Supervisor {
     pub fn snapshot(&self) -> Value {
         Value::Array(self.workers.iter().map(|w|json!({"name":w.spec.name,"starts":w.starts,"pid":w.child.as_ref().map(Child::id)})).collect())
     }
-    pub fn stop(&mut self) -> Result<()> {
-        for w in &mut self.workers {
-            if let Some(mut c) = w.child.take() {
-                c.kill()?;
-                c.wait()?;
+    pub async fn stop(&mut self) -> Result<()> {
+        let mut children: Vec<_> = self
+            .workers
+            .iter_mut()
+            .filter_map(|w| w.child.take())
+            .collect();
+        for child in &mut children {
+            if child.try_wait()?.is_none() {
+                // An unreaped child retains its PID until we collect its exit status.
+                let result = unsafe { libc::kill(child.id() as libc::pid_t, libc::SIGTERM) };
+                if result < 0 {
+                    let error = std::io::Error::last_os_error();
+                    if error.raw_os_error() != Some(libc::ESRCH) {
+                        return Err(error.into());
+                    }
+                }
             }
+        }
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while !children.is_empty() {
+            let mut waiting = Vec::new();
+            for mut child in children {
+                if child.try_wait()?.is_none() {
+                    waiting.push(child);
+                }
+            }
+            children = waiting;
+            if children.is_empty() {
+                break;
+            }
+            if let Some(device) = &mut self.watchdog {
+                device.write_all(&[0])?;
+            }
+            if Instant::now() >= deadline {
+                for mut child in children {
+                    child.kill()?;
+                    child.wait()?;
+                }
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
         }
         if let Some(mut device) = self.watchdog.take() {
             device.write_all(b"V")?;

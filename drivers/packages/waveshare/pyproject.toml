@@ -1,0 +1,14 @@
+[project]
+name = "fwc-waveshare"
+version = "0.1.0"
+requires-python = ">=3.11,<3.14"
+
+[build-system]
+requires = ["uv_build>=0.13,<0.14"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "fwc.waveshare"
+
+[project.entry-points."fwc.drivers.display"]
+waveshare-2in13-v4 = "fwc.waveshare:Display"

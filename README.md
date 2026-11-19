@@ -21,3 +21,8 @@ the device file list in `image/`.
 
 See the [core interfaces](docs/CORE.md), [build plan](docs/BUILD_PLAN.md)
 and [project glossary](docs/GLOSSARY.md).
+
+For the observation worker, see the [capture configuration and event schema](capture/README.md)
+and [live virtual-radio check](capture/HWSIM.md). For hardware selection, see
+the [driver registry and operations](drivers/README.md) and
+[display and ADC setup](drivers/HARDWARE.md).

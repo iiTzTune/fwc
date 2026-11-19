@@ -56,8 +56,8 @@ fn committed_records_survive_reopen_and_retries() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[test]
-fn watchdog_receives_feeds_and_orderly_close() -> anyhow::Result<()> {
+#[tokio::test]
+async fn watchdog_receives_feeds_and_orderly_close() -> anyhow::Result<()> {
     let dir = tempfile::tempdir()?;
     let device = dir.path().join("test-device");
     std::fs::File::create(&device)?;
@@ -66,7 +66,7 @@ fn watchdog_receives_feeds_and_orderly_close() -> anyhow::Result<()> {
     let mut log = Log::open(dir.path(), 32)?;
     supervisor.tick(&mut log)?;
     supervisor.tick(&mut log)?;
-    supervisor.stop()?;
+    supervisor.stop().await?;
     assert_eq!(std::fs::read(device)?, b"\0\0V");
     Ok(())
 }
@@ -83,5 +83,38 @@ fn log_rotates_whole_json_records() -> anyhow::Result<()> {
             serde_json::from_slice(&std::fs::read(dir.path().join(name))?)?;
         assert_eq!(entry["data"], n);
     }
+    Ok(())
+}
+
+#[tokio::test]
+async fn orderly_shutdown_allows_cleanup_and_reaps_workers() -> anyhow::Result<()> {
+    let dir = tempfile::tempdir()?;
+    let ready = dir.path().join("ready");
+    let stopped = dir.path().join("stopped");
+    let stubborn_ready = dir.path().join("stubborn-ready");
+    let device = dir.path().join("test-device");
+    std::fs::File::create(&device)?;
+    let script = r#"trap 'echo stopped > "$2"; exit 0' TERM
+        echo ready > "$1"
+        while :; do sleep 0.02; done"#;
+    let mut supervisor = Supervisor::new(Config::parse(&json!({
+        "watchdog":device,
+        "services":[
+            {"name":"collector","command":["sh","-c",script,"collector",ready,stopped],"window_secs":5,"restarts":1},
+            {"name":"stubborn","command":["sh","-c","trap '' TERM; echo ready > \"$1\"; exec sleep 60","stubborn",stubborn_ready],"window_secs":5,"restarts":1}
+        ]
+    }).to_string())?)?;
+    let mut log = Log::open(dir.path(), 1024)?;
+    supervisor.tick(&mut log)?;
+    let deadline = Instant::now() + Duration::from_secs(2);
+    while !ready.exists() || !stubborn_ready.exists() {
+        anyhow::ensure!(Instant::now() < deadline, "worker did not start");
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    tokio::time::timeout(Duration::from_secs(5), supervisor.stop()).await??;
+    let feeds = std::fs::read(device)?;
+    assert!(feeds.len() > 2 && feeds.ends_with(b"V"));
+    assert_eq!(std::fs::read_to_string(stopped)?.trim(), "stopped");
+    assert_eq!(supervisor.snapshot()[0]["pid"], serde_json::Value::Null);
     Ok(())
 }
