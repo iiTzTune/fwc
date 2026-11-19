@@ -495,7 +495,10 @@
               "networks.read",
               "widget.write",
               "export.write",
-              "display.write"
+              "display.write",
+              "radio.tx",
+              "radio.config",
+              "radio.raw"
             ]
           },
           "description": "Inputs the host supplies and results the plugin may produce."

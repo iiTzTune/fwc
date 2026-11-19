@@ -29,10 +29,15 @@ impl Store {
         db.execute_batch("PRAGMA synchronous=FULL;")?;
         let tx = db.transaction()?;
         let version: i64 = tx.query_row("PRAGMA user_version", [], |r| r.get(0))?;
-        match version {
-            0 => tx.execute_batch(include_str!("../migrations/001.sql"))?,
-            1 => (),
-            _ => anyhow::bail!("unsupported state schema {version}"),
+        anyhow::ensure!(
+            (0..=2).contains(&version),
+            "unsupported state schema {version}"
+        );
+        if version == 0 {
+            tx.execute_batch(include_str!("../migrations/001.sql"))?;
+        }
+        if version < 2 {
+            tx.execute_batch(include_str!("../migrations/002.sql"))?;
         }
         tx.commit()?;
         Ok(Self { db, _lease: lease })

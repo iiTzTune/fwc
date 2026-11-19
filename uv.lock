@@ -65,11 +65,15 @@ name = "fwc-plugins"
 version = "0.1.0"
 source = { editable = "plugins" }
 dependencies = [
+    { name = "fwc-capture" },
     { name = "fwc-drivers" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "fwc-drivers", editable = "drivers" }]
+requires-dist = [
+    { name = "fwc-capture", editable = "capture" },
+    { name = "fwc-drivers", editable = "drivers" },
+]
 
 [[package]]
 name = "fwc-waveshare"

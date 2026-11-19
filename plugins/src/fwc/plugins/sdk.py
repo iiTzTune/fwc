@@ -19,7 +19,17 @@ class Status(TypedDict):
     clients: int
 
 
+class RadioState(TypedDict, total=False):
+    channel: int
+    mode: str
+    tx_enabled: bool
+    dwell_ms: int
+
+
 class Snapshot(TypedDict, total=False):
+    settings: dict
+    radio: RadioState
+    last_radio: RadioState
     status: Status
     networks: list[Network]
 
@@ -38,3 +48,19 @@ def display(text: str) -> None:
 
 def export(records: list[Network]) -> None:
     print(json.dumps({"action": "export", "records": records}))
+
+
+def set_channel(channel: int) -> None:
+    print(
+        json.dumps(
+            {"action": "radio", "command": {"op": "set_channel", "channel": channel}}
+        )
+    )
+
+
+def configure_radio(**changes) -> None:
+    print(
+        json.dumps(
+            {"action": "radio", "command": {"op": "configure", "changes": changes}}
+        )
+    )

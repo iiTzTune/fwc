@@ -3,9 +3,11 @@
 import json
 import re
 import socket
+import subprocess
 import sys
 import time
 import uuid
+from contextlib import ExitStack
 from dataclasses import dataclass, fields
 from itertools import cycle
 from pathlib import Path
@@ -114,22 +116,53 @@ class Publisher:
                 time.sleep(0.25)
 
 
-def run(settings, radio, publisher, stopping=lambda: False, usage=None):
+def run(settings, radio, publisher, stopping=lambda: False, usage=None, control=None):
     observer = Observer(settings.allow_ssids, settings.deny_ssids)
     ring_args = () if usage is None else (usage,)
     ring = Ring(
         Path(settings.directory), settings.max_bytes, settings.file_count, *ring_args
     )
     try:
-        for channel in cycle(settings.channels):
+        plan = settings.channels
+        scanner = cycle(plan)
+        while True:
+            channel = next(scanner)
             if stopping():
                 return
             if not ring.space(128):
                 ring.close()
                 time.sleep(0.25)
                 continue
-            with radio.listen(channel) as sock:
-                deadline = time.monotonic() + settings.dwell_ms / 1000
+            dwell = settings.dwell_ms
+            applied = None
+            if control:
+                applied = control.prepare(publisher)
+                changes = control.overrides.get("radio.config", (None, {}))[1]
+                current_plan = changes.get("channels", settings.channels)
+                if plan != current_plan:
+                    plan = current_plan
+                    scanner = cycle(plan)
+                    channel = next(scanner)
+                channel = control.overrides.get("radio.tx", (None, channel))[1]
+                dwell = changes.get("dwell_ms", dwell)
+            with ExitStack() as stack:
+                try:
+                    sock = stack.enter_context(radio.listen(channel))
+                except (ValueError, OSError, subprocess.SubprocessError) as error:
+                    if not control or not control.overrides:
+                        raise
+                    control.tune_failed(publisher, applied, error)
+                    continue
+                deadline = time.monotonic() + dwell / 1000
+                if control:
+                    max_bytes = changes.get("max_bytes", settings.max_bytes)
+                    count = changes.get("file_count", settings.file_count)
+                    if (max_bytes, count) != (ring.max_bytes, ring.count):
+                        ring.close()
+                        ring = Ring(
+                            Path(settings.directory), max_bytes, count, *ring_args
+                        )
+                    control.announce(publisher, channel, dwell, applied)
                 while not stopping() and (remaining := deadline - time.monotonic()) > 0:
                     sock.settimeout(remaining)
                     try:

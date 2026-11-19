@@ -112,3 +112,47 @@ def test_shipped_examples(tmp_path):
             invoke(pkg, {"status": {"committed": 1, "services": []}, "networks": []})
         )
         assert reply["action"] == action
+
+
+@pytest.mark.parametrize(
+    ("requested", "configured"),
+    [
+        ("radio.tx", []),
+        ("radio.config", ["radio.tx"]),
+        ("radio.raw", ["radio.raw", "radio.tx"]),
+    ],
+)
+def test_requested_radio_permission_denied_before_launch(
+    tmp_path, monkeypatch, requested, configured
+):
+    from fwc.plugins import host
+
+    pkg = package(tmp_path, "raise Exception()", permissions=[requested])
+    (tmp_path / "plugin-config.json").write_text(
+        json.dumps({"plugins": {"sample": {"permissions": configured}}})
+    )
+    observations = []
+
+    async def report(directory, name, state, detail, error):
+        observations.append((state, error))
+        raise asyncio.CancelledError
+
+    monkeypatch.setattr(host, "report", report)
+    with pytest.raises(asyncio.CancelledError):
+        asyncio.run(host.serve(pkg, tmp_path, 1, asyncio.Semaphore(1)))
+    assert observations == [
+        ("unavailable", {"code": "permission_denied", "permission": requested})
+    ]
+
+
+@pytest.mark.parametrize(
+    "entry", [{"permission": []}, {"permissions": ["typo"]}, {"settings": []}]
+)
+def test_bad_grant_file_never_supplies_legacy_defaults(tmp_path, entry):
+    from fwc.capture.contract import plugin_config
+
+    (tmp_path / "plugin-config.json").write_text(
+        json.dumps({"plugins": {"sample": entry}})
+    )
+    with pytest.raises((ValueError, TypeError)):
+        plugin_config(tmp_path, "sample")

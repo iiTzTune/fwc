@@ -96,7 +96,7 @@ The HTTP settings object includes all six editable fields. The API accepts at mo
 | --- | --- | --- | --- |
 | `name` | string | Required | Must match its directory name. Pattern `^[a-z][a-z0-9-]{0,39}$`. |
 | `api_version` | 1 | Required | Plugin SDK contract implemented by main.py. |
-| `permissions` | list of status.read, networks.read, widget.write, export.write, display.write | Required | Inputs the host supplies and results the plugin may produce. |
+| `permissions` | list of status.read, networks.read, widget.write, export.write, display.write, radio.tx, radio.config, radio.raw | Required | Inputs the host supplies and results the plugin may produce. |
 | `interval_seconds` | integer (1–3600) | Required | Delay in seconds following a successful invocation. |
 | `max_restarts` | integer (0–10) | Required | Retries allowed after consecutive failed invocations. |
 | `budget` | budget | Required | Per-invocation resource limits. |

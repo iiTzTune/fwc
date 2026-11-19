@@ -23,7 +23,7 @@ from markdown.treeprocessors import Treeprocessor
 ROOT = Path(__file__).resolve().parents[1]
 DOCS = ROOT / "docs"
 OUTPUT = ROOT / "build/docs"
-RELEASE = DOCS / "releases/v0.1.0.md"
+COMPONENTS = DOCS / "components.md"
 
 
 def read_json(path):
@@ -259,13 +259,9 @@ class LinksExtension(Extension):
 
 def build(refresh):
     reference = DOCS / "configuration.md"
-    marker = "<!-- component-versions -->"
-    body, separator, _ = RELEASE.read_text().partition(marker)
-    if not separator:
-        raise ValueError("Missing release version table marker")
     for path, content in [
         (reference, configuration()),
-        (RELEASE, body + marker + "\n\n" + versions() + "\n"),
+        (COMPONENTS, "# Current component versions\n\n" + versions() + "\n"),
     ]:
         if refresh:
             path.write_text(content)
@@ -296,7 +292,7 @@ a{{color:#124c72}}nav{{margin-bottom:1rem}}code{{overflow-wrap:anywhere}}</style
 <nav><a href="{home}">Field Wireless Companion guide</a></nav><main>{body}</main></html>
 """)
     print(
-        f"Built {len(pages)} pages. Configuration reference, release component versions and local links passed."
+        f"Built {len(pages)} pages. Configuration reference, current component versions and local links passed."
     )
 
 
