@@ -1,9 +1,11 @@
 """Drive an installed Chromium through its standard WebDriver HTTP interface."""
 
 import json
+import os
 import shutil
 import subprocess
 import time
+from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 import pytest
@@ -13,7 +15,7 @@ from conftest import free_port, publish
 @pytest.fixture
 def browser(tmp_path):
     driver = shutil.which("chromedriver")
-    chromium = next(
+    chromium = os.environ.get("FWC_CHROME") or next(
         (
             p
             for name in ("chromium", "google-chrome", "google-chrome-stable", "chrome")
@@ -32,8 +34,11 @@ def browser(tmp_path):
             method=method,
             headers={"Content-Type": "application/json"},
         )
-        with urlopen(req, timeout=12) as reply:
-            return json.load(reply)["value"]
+        try:
+            with urlopen(req, timeout=12) as reply:
+                return json.load(reply)["value"]
+        except HTTPError as error:
+            pytest.fail(f"WebDriver {method} {path}: {error.read().decode(errors='replace')}")
 
     with subprocess.Popen(
         [driver, "--port=" + endpoint.rsplit(":", 1)[1]], stdout=subprocess.DEVNULL

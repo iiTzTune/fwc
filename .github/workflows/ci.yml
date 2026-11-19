@@ -24,13 +24,17 @@ jobs:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v7
       - uses: extractions/setup-just@v3
-      - uses: browser-actions/setup-chrome@v2
-        with:
-          install-chromedriver: true
       - uses: dtolnay/rust-toolchain@stable
       - name: Install plugin runtime
         run: sudo apt-get update && sudo apt-get install -y bubblewrap libseccomp2
+      - name: Check runner browser and driver
+        run: |
+          google-chrome --version
+          chromedriver --version
+          test "$(google-chrome --version | cut -d' ' -f3 | cut -d. -f1)" = "$(chromedriver --version | cut -d' ' -f2 | cut -d. -f1)"
       - run: just python
+        env:
+          FWC_CHROME: /usr/bin/google-chrome
   assets:
     runs-on: ubuntu-latest
     steps:
