@@ -19,6 +19,7 @@
 | geo-log | 0.1.0 (plugin API 1) |
 | pcap-sink | 0.1.0 (plugin API 1) |
 | peers-mesh | 0.1.0 (plugin API 1) |
+| stats-faces | 0.1.0 (plugin API 1) |
 | status-display | 0.1.0 (plugin API 1) |
 | Alpine root filesystem | 3.23.0 |
 | Linux kernel package | 6.18.64-r0 |

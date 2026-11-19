@@ -1,0 +1,8 @@
+{
+  "name": "stats-faces",
+  "api_version": 1,
+  "permissions": ["networks.read", "display.write"],
+  "interval_seconds": 15,
+  "max_restarts": 2,
+  "budget": {"seconds": 3, "cpu_seconds": 1, "memory_mib": 48}
+}

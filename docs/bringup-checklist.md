@@ -168,3 +168,13 @@ curl -fsS http://127.0.0.1:8080/api/map
 ```
 
 Substitute the receiver's actual device and baud rate.
+
+## Open — Epoch and score on the companion display
+
+Install stats-faces and grant `networks.read` and `display.write`. Select the
+Waveshare display driver. During an observation session, compare the face,
+epoch and score on the physical panel with the latest plugin detail.
+
+```sh
+curl -fsS http://127.0.0.1:8080/api/plugins
+```
