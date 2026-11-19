@@ -110,6 +110,8 @@ def snapshot(package, port):
         ("status.read", "status", "/api/status"),
         ("networks.read", "networks", "/api/networks?limit=16"),
     ]
+    if package.name == "peers-mesh":
+        endpoints.append(("status.read", "peers", "/api/peers"))
     for permission, key, path in endpoints:
         if permission in package.permissions:
             with closing(
@@ -123,7 +125,7 @@ def snapshot(package, port):
                 if key == "status":
                     inputs[key] = {k: data[k] for k in ("committed", "clients")}
                 else:
-                    inputs[key] = data["items"]
+                    inputs[key] = data["items"][:32]
     return inputs
 
 
@@ -256,6 +258,13 @@ async def serve(package, directory, port, capacity):
         try:
             inputs = await asyncio.to_thread(snapshot, package, port)
             inputs["settings"] = settings
+            if package.name == "peers-mesh":
+                from .peers_mesh import recent_elements
+
+                require(package.permissions, ["status.read", "export.write"])
+                inputs["peer_elements"] = await asyncio.to_thread(
+                    recent_elements, directory
+                )
             if package.name == "geo-log":
                 from . import geo_log
 

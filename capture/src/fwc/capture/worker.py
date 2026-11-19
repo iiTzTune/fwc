@@ -12,7 +12,7 @@ from dataclasses import dataclass, fields
 from itertools import cycle
 from pathlib import Path
 
-from .observation import Observer, decode
+from .observation import Observer, decode, peer_element
 from .storage import Ring
 
 
@@ -163,10 +163,19 @@ def run(settings, radio, publisher, stopping=lambda: False, usage=None, control=
                             Path(settings.directory), max_bytes, count, *ring_args
                         )
                     control.announce(publisher, channel, dwell, applied)
+                read_peers = (
+                    control is not None
+                    and (
+                        control.directory / "plugins/peers-mesh/manifest.json"
+                    ).is_file()
+                    and {"status.read", "export.write"} <= control.grants("peers-mesh")
+                )
+                peer_samples = set()
                 while not stopping() and (remaining := deadline - time.monotonic()) > 0:
                     sock.settimeout(remaining)
                     try:
-                        item = decode(sock.recv(4096))
+                        packet = sock.recv(4096)
+                        item = decode(packet)
                     except TimeoutError:
                         break
                     if item is None:
@@ -176,6 +185,11 @@ def run(settings, radio, publisher, stopping=lambda: False, usage=None, control=
                     if accepted and not ring.append(item.record, observed):
                         time.sleep(0.25)
                         break
+                    if accepted and read_peers and len(peer_samples) < 32:
+                        element = peer_element(packet, item)
+                        if element and element not in peer_samples:
+                            peer_samples.add(element)
+                            publisher.publish("peer.element", {"element": element})
                     for topic, payload in observer.observe(item, channel, observed):
                         publisher.publish(topic, payload)
                 for topic, payload in observer.finish_dwell():

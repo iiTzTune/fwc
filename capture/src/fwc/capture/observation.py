@@ -152,3 +152,23 @@ class Observer:
         ]
         self.stats.clear()
         return summaries
+
+
+def peer_element(packet, observation):
+    """Find the local companion element following the accepted beacon's SSID."""
+    if observation.kind != 0x80:
+        return None
+    offset = int.from_bytes(packet[2:4], "little") + len(observation.record)
+    while offset + 2 <= len(packet):
+        kind, length = packet[offset : offset + 2]
+        end = offset + 2 + length
+        if end > len(packet):
+            break
+        if (
+            kind == 221
+            and length >= 5
+            and packet[offset + 2 : offset + 6] == b"\x02FWC"
+        ):
+            return packet[offset:end].hex()
+        offset = end
+    return None
