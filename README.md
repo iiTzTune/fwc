@@ -1,25 +1,23 @@
-# FWC — Field Wireless Companion
+# Field Wireless Companion
 
-A personal wireless network observation and connectivity-logging device for the
-owner's own networks and surroundings. Ground-up rebuild of the community handheld
-network-observation device concept (pwnagotchi lineage), optimized for reliability,
-efficiency, and plugin extensibility.
+FWC is a personal wireless network observation and connectivity-logging device
+for the owner's own networks and surroundings.
 
-## Status
-Pre-scaffold. The build plan is the source of truth:
-[docs/BUILD_PLAN.md](docs/BUILD_PLAN.md)
+## Development
 
-## Repository layout (M0 scaffold, currently empty)
-- `core/` — Rust supervisor daemon, state store (SQLite WAL), message bus
-- `capture/` — Python capture worker (monitor-mode, standard nl80211 tooling)
-- `drivers/` — hardware HAL driver packages (Display, Power, Indicator, Input)
-- `web/` — JSON API + small front-end, e-ink-friendly static fallback
-- `plugins/` — plugin SDK and example plugins
-- `image/` — declarative OS image builder
+Use Linux with stable Rust (1.89 or newer, cargo, rustfmt and clippy), a C
+toolchain for bundled SQLite, uv 0.13 and just. uv manages Python. Run
+`just ci` at the repository root to check Rust, exercise recovery, lint and
+test Python, build all Python distributions, build the static front-end into
+`build/web`, and resolve the image file list. CI checks Python 3.11–3.13.
 
-## Engineering rules
-See `docs/BUILD_PLAN.md` — "Engineering rules for every lane". Highlights:
-- Tests-first for state machines and parsers
-- No secrets in the repo; device identity material generated at first boot
-- Config is schema-validated at boot; invalid config is readable, never a crash loop
-- Each milestone lane owns its top-level directory exclusively
+To run the core locally, save `{}` as `config.json` and run
+`cargo run -- ./device-state ./config.json`. Use a dedicated state directory.
+The default configuration starts the local bus with an empty service registry.
+
+The Rust daemon lives in `core/`. The uv workspace includes `capture/`,
+`drivers/` and `plugins/`. The static companion page lives in `web/` and
+the device file list in `image/`.
+
+See the [core interfaces](docs/CORE.md), [build plan](docs/BUILD_PLAN.md)
+and [project glossary](docs/GLOSSARY.md).
