@@ -7,6 +7,7 @@ LEGACY = frozenset(
     {"status.read", "networks.read", "widget.write", "display.write", "export.write"}
 )
 RADIO = frozenset({"radio.tx", "radio.config", "radio.raw"})
+PERMISSIONS = LEGACY | RADIO | {"network.out"}
 CONFIG_KEYS = {"channels", "dwell_ms", "file_count", "max_bytes"}
 
 
@@ -38,7 +39,7 @@ def plugin_config(directory, name):
     rights = entry.get("permissions", list(LEGACY))
     settings = entry.get("settings", {})
     if not isinstance(rights, list) or not all(
-        isinstance(p, str) and p in LEGACY | RADIO for p in rights
+        isinstance(p, str) and p in PERMISSIONS for p in rights
     ):
         raise ValueError("invalid plugin permissions")
     if not isinstance(settings, dict):

@@ -498,7 +498,8 @@
               "display.write",
               "radio.tx",
               "radio.config",
-              "radio.raw"
+              "radio.raw",
+              "network.out"
             ]
           },
           "description": "Inputs the host supplies and results the plugin may produce."

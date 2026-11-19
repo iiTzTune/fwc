@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from fwc.capture.contract import (
-    LEGACY,
+    PERMISSIONS,
     RADIO,
     PermissionDenied,
     command_permission,
@@ -27,7 +27,6 @@ from fwc.capture.contract import (
 from . import radio
 from .sandbox import invoke
 
-PERMISSIONS = LEGACY | RADIO
 NAME = re.compile(r"[a-z][a-z0-9-]{0,39}")
 
 
@@ -184,6 +183,13 @@ async def deliver(package, result, directory):
     action = result["action"]
     granted, settings = plugin_config(directory, package.name)
     require(granted, package.permissions)
+    if action == "upload_summary" and package.name == "export-web":
+        from .export_web import upload
+
+        require(package.permissions, ["networks.read", "network.out"])
+        if set(result) != {"action", "summary"}:
+            raise ValueError("unexpected summary fields")
+        return await asyncio.to_thread(upload, directory, result["summary"])
     if action == "pcap_sink" and package.name == "pcap-sink":
         from .pcap_sink import sync
 

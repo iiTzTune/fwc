@@ -13,6 +13,7 @@
 | fwc-plugins | 0.1.0 |
 | SQLite activity store schema | 2 |
 | activity-widget | 0.1.0 (plugin API 1) |
+| export-web | 0.1.0 (plugin API 1) |
 | file-export | 0.1.0 (plugin API 1) |
 | fwc-plugin-hop | 0.1.0 (plugin API 1) |
 | geo-log | 0.1.0 (plugin API 1) |
