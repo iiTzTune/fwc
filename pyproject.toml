@@ -15,6 +15,7 @@ dev = [
     "fwc-drivers",
     "fwc-iio",
     "fwc-waveshare",
+    "fwc-drivers-waveshare144lcd",
     "fwc-plugins",
     "selenium>=4.26,<5",
 ]
@@ -27,6 +28,7 @@ fwc-capture = { workspace = true }
 fwc-drivers = { workspace = true }
 fwc-iio = { workspace = true }
 fwc-waveshare = { workspace = true }
+fwc-drivers-waveshare144lcd = { workspace = true }
 fwc-plugins = { workspace = true }
 
 [tool.ruff]
