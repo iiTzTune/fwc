@@ -51,6 +51,18 @@ if (route === "session") {
   });
 }
 if (route === "records") {
+  api("captures").then(({items}) => {
+    for (const item of items) {
+      const link = document.createElement("a");
+      link.href = "/api/captures/" + encodeURIComponent(item.name);
+      link.download = item.name;
+      link.textContent = item.name + " (" + item.size.toLocaleString() + " bytes)";
+      const row = document.createElement("li");
+      row.append(link);
+      byId("downloads").append(row);
+    }
+    byId("archives").hidden = items.length === 0;
+  }).catch(report);
   const history = [""];
   let next = null;
   async function render() {

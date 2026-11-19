@@ -180,8 +180,15 @@ async def deliver(package, result, directory):
     if not isinstance(result, dict) or not isinstance(result.get("action"), str):
         raise TypeError("expected a plugin result object")
     action = result["action"]
-    granted, _ = plugin_config(directory, package.name)
+    granted, settings = plugin_config(directory, package.name)
     require(granted, package.permissions)
+    if action == "pcap_sink" and package.name == "pcap-sink":
+        from .pcap_sink import sync
+
+        require(package.permissions, ["export.write"])
+        if set(result) != {"action"}:
+            raise ValueError("unexpected capture archive settings")
+        return await asyncio.to_thread(sync, directory, settings)
     if action == "radio":
         if result.keys() != {"action", "command"}:
             raise ValueError("invalid radio result fields")

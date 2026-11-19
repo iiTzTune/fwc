@@ -17,7 +17,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
+from fwc.capture.contract import plugin_config, require
 from fwc.capture.worker import Settings
+from fwc.plugins.host import Manifest
 
 ASSETS = Path(__file__).resolve().parent
 SPEC = json.loads((ASSETS / "openapi.json").read_text())
@@ -101,6 +103,19 @@ class Device:
                         tmp.unlink(missing_ok=True)
             values = asdict(parsed)
             return {key: values[key] for key in EDITABLE}
+
+    def plugin_available(self, name, required):
+        folder = self.state / "plugins" / name
+        if folder.is_symlink() or not folder.is_dir():
+            return False
+        try:
+            package = Manifest.load(folder)
+            granted, _ = plugin_config(self.state, name)
+            require(granted, package.permissions)
+            require(package.permissions, required)
+            return package.name == name
+        except (OSError, TypeError, ValueError, RecursionError):
+            return False
 
     def networks(self, raw_query):
         try:
@@ -307,6 +322,25 @@ class Handler(BaseHTTPRequestHandler):
                 )
             )
             self.reply(page.encode(), media="text/html; charset=utf-8")
+        elif route.path == "/api/captures" or route.path.startswith("/api/captures/"):
+            from fwc.plugins import pcap_sink
+
+            available = device.plugin_available("pcap-sink", ["export.write"])
+            if route.path == "/api/captures":
+                self.reply(
+                    {"items": pcap_sink.list_files(device.state) if available else []}
+                )
+            elif available:
+                try:
+                    data = pcap_sink.read_file(
+                        device.state, route.path.removeprefix("/api/captures/")
+                    )
+                except FileNotFoundError:
+                    self.reply({"error": "Capture file unavailable"}, 404)
+                else:
+                    self.reply(data, media="application/vnd.tcpdump.pcap")
+            else:
+                self.reply({"error": "Capture file unavailable"}, 404)
         elif route.path == "/api/networks":
             self.reply(device.networks(route.query))
         elif route.path == "/api/status":
