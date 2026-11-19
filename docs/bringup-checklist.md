@@ -153,3 +153,18 @@ for the named permission and confirm the radio resumes the device channel plan.
 sqlite3 /var/lib/fwc/state.sqlite "SELECT data FROM events WHERE topic='plugin.status' AND json_extract(data,'$.name')='fwc-plugin-hop' ORDER BY seq DESC LIMIT 1"
 iw dev fwcmon0 info
 ```
+
+## Open — USB receiver and observation map
+
+Connect the USB GPS receiver, select its serial device and baud rate in the
+geo-log settings, and grant `networks.read` and `export.write`. At a known
+outdoor location, check for a dated fix. Observe a network and compare the
+coordinates in the Records page map with the known location.
+
+```sh
+ls -l /dev/serial/by-id/
+python3 -c 'from pathlib import Path; from fwc.plugins.geo_log import snapshot; print(snapshot(Path("/var/lib/fwc"), {"device":"/dev/ttyACM0","baud":9600})["fix"])'
+curl -fsS http://127.0.0.1:8080/api/map
+```
+
+Substitute the receiver's actual device and baud rate.

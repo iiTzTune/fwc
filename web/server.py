@@ -19,7 +19,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from fwc.capture.contract import plugin_config, require
 from fwc.capture.worker import Settings
-from fwc.plugins.host import Manifest
+from fwc.plugins.host import Manifest, bounded
 
 ASSETS = Path(__file__).resolve().parent
 SPEC = json.loads((ASSETS / "openapi.json").read_text())
@@ -322,6 +322,16 @@ class Handler(BaseHTTPRequestHandler):
                 )
             )
             self.reply(page.encode(), media="text/html; charset=utf-8")
+        elif route.path == "/api/map":
+            points = []
+            if device.plugin_available("geo-log", ["networks.read", "export.write"]):
+                try:
+                    points = json.loads(
+                        bounded(device.state / "exports/geo-log.json", 8193)
+                    )
+                except FileNotFoundError:
+                    pass
+            self.reply({"items": points})
         elif route.path == "/api/captures" or route.path.startswith("/api/captures/"):
             from fwc.plugins import pcap_sink
 

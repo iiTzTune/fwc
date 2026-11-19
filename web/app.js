@@ -51,6 +51,39 @@ if (route === "session") {
   });
 }
 if (route === "records") {
+  api("map").then(({items}) => {
+    if (!items.length) return;
+    const canvas = byId("positions");
+    const ctx = canvas.getContext("2d");
+    const origin = items[0];
+    const scaleX = Math.max(0.001, Math.cos(origin.latitude * Math.PI / 180));
+    const points = items.map(p => ({
+      x: (((p.longitude - origin.longitude + 540) % 360) - 180) * scaleX * 111.32,
+      y: (p.latitude - origin.latitude) * 111.32
+    }));
+    const xs = points.map(p => p.x), ys = points.map(p => p.y);
+    const west = Math.min(...xs), north = Math.max(...ys);
+    const width = Math.max(...xs) - west, height = north - Math.min(...ys);
+    const kmPerPixel = Math.max(width / 590, height / 185, 0.00001);
+    ctx.strokeStyle = "#c7cdc4";
+    for (let x = 0; x < canvas.width; x += 50) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+    }
+    for (let y = 0; y < canvas.height; y += 50) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+    }
+    ctx.fillStyle = "#264537"; ctx.font = "15px sans-serif";
+    ctx.fillText("N ↑", 10, 22);
+    points.forEach((p, i) => {
+      const x = canvas.width / 2 + (p.x - west - width / 2) / kmPerPixel;
+      const y = canvas.height / 2 + (north - p.y - height / 2) / kmPerPixel;
+      ctx.beginPath(); ctx.arc(x, y, 4, 0, 2 * Math.PI); ctx.fill();
+      ctx.fillText(String(i + 1), x + 6, y - 4);
+    });
+    byId("extent").textContent = "Grid spacing ≈ " + (50000 * kmPerPixel).toLocaleString(undefined, {maximumFractionDigits: 1}) + " m";
+    list("coordinates", items.map((p, i) => (i + 1) + ". " + (p.ssid || p.network) + " · " + p.latitude.toFixed(5) + ", " + p.longitude.toFixed(5)), "");
+    byId("geo-map").hidden = false;
+  }).catch(report);
   api("captures").then(({items}) => {
     for (const item of items) {
       const link = document.createElement("a");

@@ -19,6 +19,9 @@
 <div class="panel"><div class="scroll"><table><thead><tr><th>Network</th><th>Identifier</th><th>Channel</th><th>Last observed</th></tr></thead><tbody id="networks"></tbody></table></div>
 <p id="empty" hidden>No networks recorded.</p>
 <div class="paging"><button id="previous" disabled>Previous</button><span id="page"></span><button id="next" disabled>Next</button></div></div>
+<section id="geo-map" class="panel" hidden><h2>Observation map</h2>
+<canvas id="positions" width="660" height="260" aria-label="Local positions with north at the top"></canvas>
+<p id="extent"></p><ul id="coordinates"></ul></section>
 <section id="archives" class="panel" hidden><h2>Capture files</h2><ul id="downloads"></ul></section>
 </section>
 <section id="settings" hidden>

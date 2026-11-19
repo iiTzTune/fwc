@@ -256,6 +256,13 @@ async def serve(package, directory, port, capacity):
         try:
             inputs = await asyncio.to_thread(snapshot, package, port)
             inputs["settings"] = settings
+            if package.name == "geo-log":
+                from . import geo_log
+
+                require(package.permissions, ["networks.read", "export.write"])
+                inputs.update(
+                    await asyncio.to_thread(geo_log.snapshot, directory, settings)
+                )
             if package.permissions & RADIO:
                 inputs.update(
                     await asyncio.to_thread(

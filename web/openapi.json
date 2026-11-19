@@ -491,6 +491,98 @@
           }
         ]
       }
+    },
+    "/api/map": {
+      "get": {
+        "summary": "Recent location-tagged network observations",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "seq": {
+                            "type": "integer"
+                          },
+                          "network": {
+                            "type": "string"
+                          },
+                          "ssid": {
+                            "type": "string"
+                          },
+                          "time_ns": {
+                            "type": "integer"
+                          },
+                          "latitude": {
+                            "type": "number"
+                          },
+                          "longitude": {
+                            "type": "number"
+                          },
+                          "fix_time_ns": {
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "seq",
+                          "network",
+                          "ssid",
+                          "time_ns",
+                          "latitude",
+                          "longitude",
+                          "fix_time_ns"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Local request required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Device temporarily unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
