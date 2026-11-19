@@ -16,6 +16,7 @@ dev = [
     "fwc-iio",
     "fwc-waveshare",
     "fwc-plugins",
+    "selenium>=4.26,<5",
 ]
 
 [tool.uv.workspace]

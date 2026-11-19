@@ -4,11 +4,12 @@ import socket
 import subprocess
 import sys
 import tempfile
-import time
-from contextlib import closing
+from contextlib import closing, contextmanager
 from pathlib import Path
 
 import pytest
+from selenium.common.exceptions import TimeoutException
+from selenium.webdriver.support.ui import WebDriverWait
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "web"))
@@ -56,8 +57,8 @@ def core_binary():
     return ROOT / "target/debug/fwc-core"
 
 
-@pytest.fixture
-def device(tmp_path, core_binary):
+@contextmanager
+def running_device(tmp_path, core_binary):
     port = free_port()
     short = tempfile.TemporaryDirectory(prefix="fwc-web-", dir="/tmp")
     state = Path(short.name)
@@ -95,18 +96,27 @@ def device(tmp_path, core_binary):
     )
     with subprocess.Popen([core_binary, state, core_config]) as core:
         try:
-            deadline = time.monotonic() + 8
-            while time.monotonic() < deadline:
+
+            def ready(_):
                 try:
-                    if request(port, "GET", "/api/status")[0] == 200:
-                        break
+                    return request(port, "GET", "/api/status")[0] == 200
                 except OSError:
-                    pass
-                time.sleep(0.05)
-            else:
-                raise RuntimeError("web worker failed to start")
+                    return False
+
+            try:
+                WebDriverWait(None, 45).until(ready)
+            except TimeoutException as exc:
+                raise TimeoutError(
+                    f"Device startup timed out; title=<no page> URL=http://127.0.0.1:{port}"
+                ) from exc
             yield port, state, config
         finally:
             core.terminate()
             core.wait(5)
             short.cleanup()
+
+
+@pytest.fixture
+def device(tmp_path, core_binary):
+    with running_device(tmp_path, core_binary) as started:
+        yield started

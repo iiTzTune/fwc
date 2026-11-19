@@ -23,12 +23,9 @@ def test_records_map_and_grant_removal(device, browser):  # noqa: F811
     }
     (state / "exports/geo-log.json").write_text(json.dumps([record]))
     assert request(port, "GET", "/api/map") == (200, {"items": [record]})
-    visit, run, wait = browser
-    visit(f"http://127.0.0.1:{port}/records")
-    wait("!document.querySelector('#geo-map').hidden")
-    assert "Field · 41.12345, -88.09123" in run(
-        "return document.querySelector('#coordinates').textContent"
-    )
+    browser.open(f"http://127.0.0.1:{port}/records")
+    browser.visible("#geo-map")
+    browser.text("#coordinates", "Field · 41.12345, -88.09123")
     (state / "plugin-config.json").write_text(
         '{"plugins":{"geo-log":{"permissions":[]}}}'
     )
