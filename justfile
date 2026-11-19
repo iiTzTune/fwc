@@ -1,4 +1,4 @@
-ci: rust python image image-ab-test
+ci: rust python image image-ab-test board-image
 
 rust:
     cargo fmt --all -- --check
@@ -18,8 +18,19 @@ web:
     mkdir -p build/web
     cp web/index.html web/fallback.html web/server.py web/app.js web/style.css web/openapi.json build/web/
 
-image: web
-    uv run --locked python image/dry_run.py
+[positional-arguments]
+image operation="dry-run": web
+    #!/bin/sh
+    set -eu
+    case "$1" in
+        build) python3 image/build.py ;;
+        dry-run) uv run --locked python image/dry_run.py ;;
+        *) echo "Usage: just image [dry-run|build]" >&2; exit 2 ;;
+    esac
+
+board-image:
+    just image build
+    python3 image/tests/boot_image.py build/image/fwc-x86_64.img
 
 golden-render:
     uv run --locked pytest drivers/tests/test_golden.py
