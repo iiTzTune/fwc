@@ -80,3 +80,7 @@ disconnects. The companion service presents the latest state at GET /api/plugins
 Run `uv run pytest plugins/` for the manifest, SDK, resource limits and real
 service tests. Run `just plugin-smoke` for the two ten-second failures with
 a supervised capture loop and a live companion API.
+
+For the device grant table, channel and dwell commands, and current package
+examples, see the [plugin author guide](../docs/plugin-author.md). The
+[configuration reference](../docs/configuration.md) lists per-plugin settings.

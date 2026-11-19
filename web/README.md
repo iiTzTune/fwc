@@ -32,7 +32,7 @@ The service publishes OpenAPI 3.1 at `/openapi.json`. Local clients use
 `127.0.0.1` or `localhost` and the configured port. Browser writes use the
 same origin and JSON content type. Settings accept channels, dwell time,
 file size/count and the two SSID lists. The request body limit is 16 KiB.
-All six editable properties must be present on each PUT.
+All six editable capture properties must be present on each PUT to `/api/config`.
 
 | Method and path | Result |
 | --- | --- |
@@ -41,6 +41,11 @@ All six editable properties must be present on each PUT.
 | GET /api/peers | Latest report per peer, ordered by descending sequence, capped at 256. |
 | GET /api/plugins | Latest plugin state per name, ordered by descending sequence, capped at 256. |
 | GET or PUT /api/config | Current editable settings or saved replacement values. |
+| GET /api/plugin-permissions | Requested and granted permissions for each installed plugin. |
+| PUT /api/plugin-permissions | Change one requested permission using `{"name":"fwc-plugin-hop","permission":"radio.tx","enabled":true}`. Returns the updated entry. |
+| GET /api/captures | Retained capture files available from pcap-sink. |
+| GET /api/captures/{name} | Download one retained file while its grant is active. |
+| GET /api/map | Recent geo-log observation coordinates for the Records map. |
 | GET /api/events | Server-sent events for new durable activity. Reconnect with `Last-Event-ID` to resume after a sequence. |
 
 A producer publishes `peer.seen` with string fields `peer` (stable identifier)
@@ -49,6 +54,10 @@ events with string fields `name`, `state` and `detail`. State is one of
 `running`, `waiting`, `stopped` or `unavailable`. Each state transition
 uses a new stable event ID under the normal core publish/acknowledge protocol.
 Peer and plugin lists include the latest committed sequence as `seq`.
+A plugin permission denial includes an `error` object with the
+`permission_denied` code and permission name. Settings applies permission
+changes to the host and worker on their next grant check.
+[Permission defaults and radio controls](../docs/plugin-author.md)
 
 The SSE stream emits `event: activity`, `id` equal to the committed
 sequence and a JSON `data` line with `seq`, `id`, `topic`, and `data`.

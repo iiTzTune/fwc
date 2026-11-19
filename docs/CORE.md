@@ -62,6 +62,15 @@ queued frames. Under pressure the core drops metrics first. A full queue of
 events or replies closes the slow connection. A blocked write times out after
 five seconds. Reconnect and resubscribe to resume live updates.
 
+The core identifies the supervised service on each radio connection.
+The plugin host publishes `radio/command` with a unique event ID,
+the plugin name, a `command` object and a deadline in monotonic seconds
+(`expires`). The capture worker subscribes, checks grants and applies the
+command at a dwell boundary. It publishes confirmed receive state on
+`radio/state` and replies on `radio/result` with `plugin`, `request_id`,
+`ok` and either `state` or `error`. The worker alone publishes these two
+topics. [Radio commands, state fields and grant behavior](plugin-author.md)
+
 ## Recovery and diagnostics
 
 Assign a stable, globally unique ID to each event. Retrying the same ID,

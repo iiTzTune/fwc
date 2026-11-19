@@ -1,0 +1,8 @@
+{
+  "name": "smart-sweep",
+  "api_version": 1,
+  "permissions": ["radio.config", "radio.tx"],
+  "interval_seconds": 5,
+  "max_restarts": 3,
+  "budget": {"seconds": 3, "cpu_seconds": 1, "memory_mib": 48}
+}

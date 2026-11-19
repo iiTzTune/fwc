@@ -38,7 +38,7 @@ def type_text(prop):
     if "const" in prop:
         return json.dumps(prop["const"])
     if "enum" in prop:
-        return ", ".join(prop["enum"])
+        return ", ".join(map(str, prop["enum"]))
     if prop["type"] == "array":
         if "prefixItems" in prop:
             return (
@@ -112,6 +112,17 @@ def configuration():
     def validate(name, value):
         Draft202012Validator(schema | {"$ref": "#/$defs/" + name}).validate(value)
 
+    validate(
+        "plugin-config",
+        {
+            "plugins": {
+                "fwc-plugin-hop": {
+                    "permissions": ["radio.tx"],
+                    "settings": {"channels": [1, 6]},
+                }
+            }
+        },
+    )
     device = read_json(ROOT / "image/device.json")
     validate("device", device)
     spec = importlib.util.spec_from_file_location(
@@ -164,6 +175,23 @@ sections below cover the included packages. [Driver setup](../drivers/README.md)
     parts.append(section("Capture worker", capture))
     parts.append(
         "The HTTP settings object includes all six editable fields. The API accepts at most 233 channel entries. Each SSID is at most 32 UTF-8 bytes.\n"
+    )
+    parts.append(section("Device plugin settings", models["plugin-config"]))
+    parts.append(
+        "In `/var/lib/fwc/plugin-config.json`, each `plugins.NAME` entry has these fields. The file is limited to 65536 bytes. Use Settings → Plugin permissions to change individual grants while preserving other settings. [Permission defaults and denial behavior](plugin-author.md)\n"
+    )
+    parts.append(section("Per-plugin entry", models["plugin-entry"]))
+    for name in (
+        "fwc-plugin-hop",
+        "pcap-sink",
+        "geo-log",
+        "export-web",
+        "stats-faces",
+        "smart-sweep",
+    ):
+        parts.append(section(f"{name} settings", models[name]))
+    parts.append(
+        "The keys above go under `plugins.NAME.settings`. The peers-mesh, activity-widget, file-export and status-display packages have no device-specific setting keys. The manifest's `interval_seconds` controls the time between completed invocations.\n"
     )
     for title, model in [
         ("Plugin manifest", "plugin"),
@@ -272,6 +300,7 @@ def build(refresh):
     docs = [ROOT / "README.md", *DOCS.rglob("*.md")]
     for lane in ["web", "drivers", "capture", "plugins", "image"]:
         docs.extend((ROOT / lane).glob("*.md"))
+    docs.extend((ROOT / "plugins/examples").glob("*/README.md"))
     pages = {src: OUTPUT / src.relative_to(ROOT).with_suffix(".html") for src in docs}
     pages[ROOT / "README.md"] = OUTPUT / "index.html"
     for src, dest in pages.items():

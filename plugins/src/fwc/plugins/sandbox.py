@@ -35,6 +35,8 @@ async def invoke(package, snapshot):
         str(HERE / "sdk.py"),
         "/sdk/fwc_sdk.py",
     ]
+    if package.name == "peers-mesh":
+        command += ["--ro-bind", str(HERE / "peers_mesh.py"), "/sdk/peer_wire.py"]
     # Snapshot the validated script. The plugin directory itself stays outside.
     with (
         tempfile.TemporaryFile() as script,

@@ -30,6 +30,7 @@ class Snapshot(TypedDict, total=False):
     settings: dict
     radio: RadioState
     last_radio: RadioState
+    client_density: dict[str, int]
     status: Status
     networks: list[Network]
 

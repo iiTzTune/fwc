@@ -38,7 +38,9 @@ def browser(tmp_path):
             with urlopen(req, timeout=12) as reply:
                 return json.load(reply)["value"]
         except HTTPError as error:
-            pytest.fail(f"WebDriver {method} {path}: {error.read().decode(errors='replace')}")
+            pytest.fail(
+                f"WebDriver {method} {path}: {error.read().decode(errors='replace')}"
+            )
 
     with subprocess.Popen(
         [driver, "--port=" + endpoint.rsplit(":", 1)[1]], stdout=subprocess.DEVNULL
@@ -136,3 +138,30 @@ def test_pages_and_controls(device, browser):
     run("document.querySelector('footer a').click()")
     wait("document.body.textContent.includes('events committed since startup')")
     assert run("return document.scripts.length") == 0
+
+
+def test_permission_toggle(device, browser):
+    import shutil
+    from pathlib import Path
+
+    from fwc.capture.contract import plugin_config
+
+    port, state, _ = device
+    name = "fwc-plugin-hop"
+    shutil.copytree(
+        Path(__file__).resolve().parents[2] / "plugins/examples" / name,
+        state / "plugins" / name,
+    )
+    visit, run, wait = browser
+    visit(f"http://127.0.0.1:{port}/settings")
+    field = "document.querySelector('[data-permission=\"radio.tx\"]')"
+    wait(field)
+    assert not run("return " + field + ".checked")
+    run(field + ".click()")
+    wait(field + ".checked && !" + field + ".disabled")
+    assert plugin_config(state, name)[0] == {"radio.tx"}
+    run("location.reload()")
+    wait(field + " && " + field + ".checked")
+    run(field + ".click()")
+    wait("!" + field + ".checked && !" + field + ".disabled")
+    assert plugin_config(state, name)[0] == set()

@@ -8,7 +8,14 @@ import time
 from contextlib import suppress
 from dataclasses import asdict
 
-from .contract import PermissionDenied, command_permission, plugin_config, require
+from .contract import (
+    PermissionDenied,
+    command_permission,
+    manifest_directory,
+    plugin_config,
+    radio_grants,
+    require,
+)
 
 
 class Commands:
@@ -72,9 +79,18 @@ class Control:
         except (TypeError, ValueError, OSError, RecursionError):
             return set()
 
+    def reads_peers(self):
+        try:
+            spec = manifest_directory(self.directory) / "peers-mesh/manifest.json"
+            return spec.is_file() and {"status.read", "export.write"} <= self.grants(
+                "peers-mesh"
+            )
+        except (ValueError, OSError):
+            return False
+
     def prepare(self, publisher):
         for permission, (plugin, _) in list(self.overrides.items()):
-            if permission not in self.grants(plugin):
+            if not radio_grants(permission) <= self.grants(plugin):
                 del self.overrides[permission]
 
         # Process one request per dwell so every successful reply has a tuning result.
@@ -89,7 +105,7 @@ class Control:
             if not isinstance(plugin, str):
                 raise TypeError("invalid plugin name")
             permission = command_permission(request["command"])
-            require(self.grants(plugin), [permission])
+            require(self.grants(plugin), radio_grants(permission))
             if time.monotonic() >= request["expires"]:
                 raise ValueError("radio request expired")
             cmd = request["command"]
@@ -99,7 +115,8 @@ class Control:
                 previous = self.overrides.get(permission)
                 changes = previous[1] if previous and previous[0] == plugin else {}
                 value = changes | cmd["changes"]
-                type(self.defaults).parse(asdict(self.defaults) | value)
+                common = {k: v for k, v in value.items() if k != "dwell_by_channel"}
+                type(self.defaults).parse(asdict(self.defaults) | common)
             self.overrides[permission] = (plugin, value)
             return result, permission
         except PermissionDenied as exc:

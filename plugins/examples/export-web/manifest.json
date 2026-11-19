@@ -1,0 +1,8 @@
+{
+  "name": "export-web",
+  "api_version": 1,
+  "permissions": ["network.out", "networks.read"],
+  "interval_seconds": 300,
+  "max_restarts": 3,
+  "budget": {"seconds": 3, "cpu_seconds": 1, "memory_mib": 48}
+}

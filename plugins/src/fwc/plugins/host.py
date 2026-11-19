@@ -16,18 +16,18 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from fwc.capture.contract import (
-    LEGACY,
+    PERMISSIONS,
     RADIO,
     PermissionDenied,
     command_permission,
     plugin_config,
+    radio_grants,
     require,
 )
 
 from . import radio
 from .sandbox import invoke
 
-PERMISSIONS = LEGACY | RADIO
 NAME = re.compile(r"[a-z][a-z0-9-]{0,39}")
 
 
@@ -110,6 +110,8 @@ def snapshot(package, port):
         ("status.read", "status", "/api/status"),
         ("networks.read", "networks", "/api/networks?limit=16"),
     ]
+    if package.name == "peers-mesh":
+        endpoints.append(("status.read", "peers", "/api/peers"))
     for permission, key, path in endpoints:
         if permission in package.permissions:
             with closing(
@@ -123,7 +125,7 @@ def snapshot(package, port):
                 if key == "status":
                     inputs[key] = {k: data[k] for k in ("committed", "clients")}
                 else:
-                    inputs[key] = data["items"]
+                    inputs[key] = data["items"][:32]
     return inputs
 
 
@@ -180,13 +182,29 @@ async def deliver(package, result, directory):
     if not isinstance(result, dict) or not isinstance(result.get("action"), str):
         raise TypeError("expected a plugin result object")
     action = result["action"]
-    granted, _ = plugin_config(directory, package.name)
+    granted, settings = plugin_config(directory, package.name)
     require(granted, package.permissions)
+    if action == "upload_summary" and package.name == "export-web":
+        from .export_web import upload
+
+        require(package.permissions, ["networks.read", "network.out"])
+        if set(result) != {"action", "summary"}:
+            raise ValueError("unexpected summary fields")
+        return await asyncio.to_thread(upload, directory, result["summary"])
+    if action == "pcap_sink" and package.name == "pcap-sink":
+        from .pcap_sink import sync
+
+        require(package.permissions, ["export.write"])
+        if set(result) != {"action"}:
+            raise ValueError("unexpected capture archive settings")
+        return await asyncio.to_thread(sync, directory, settings)
     if action == "radio":
         if result.keys() != {"action", "command"}:
             raise ValueError("invalid radio result fields")
         permission = command_permission(result["command"])
-        require(package.permissions, [permission])
+        required = radio_grants(permission)
+        require(package.permissions, required)
+        require(granted, required)
         state = await radio.request(directory, package.name, result["command"], bus)
         return f"Channel {state['channel']}, dwell {state['dwell_ms']} ms"
     require(package.permissions, [action + ".write"])
@@ -249,6 +267,27 @@ async def serve(package, directory, port, capacity):
         try:
             inputs = await asyncio.to_thread(snapshot, package, port)
             inputs["settings"] = settings
+            if package.name == "peers-mesh":
+                from .peers_mesh import recent_elements
+
+                require(package.permissions, ["status.read", "export.write"])
+                inputs["peer_elements"] = await asyncio.to_thread(
+                    recent_elements, directory
+                )
+            if package.name == "geo-log":
+                from . import geo_log
+
+                require(package.permissions, ["networks.read", "export.write"])
+                inputs.update(
+                    await asyncio.to_thread(geo_log.snapshot, directory, settings)
+                )
+            if package.name == "smart-sweep":
+                from .smart_sweep import density_snapshot
+
+                require(package.permissions, ["radio.tx", "radio.config"])
+                inputs["client_density"] = await asyncio.to_thread(
+                    density_snapshot, directory, settings
+                )
             if package.permissions & RADIO:
                 inputs.update(
                     await asyncio.to_thread(
@@ -304,6 +343,16 @@ async def run(manifests, directory, port):
             )
             if len(folders) > 32:
                 raise ValueError("plugin directory exceeds 32 installed packages")
+            record = str(manifests.resolve())
+            if "\n" in record or len(record.encode()) >= 4096:
+                raise ValueError("invalid plugin directory path")
+            with tempfile.NamedTemporaryFile(dir=directory, delete=False) as stream:
+                temporary = Path(stream.name)
+            try:
+                temporary.write_text(record + "\n")
+                temporary.replace(directory / "plugin-directory")
+            finally:
+                temporary.unlink(missing_ok=True)
             break
         except (OSError, ValueError) as exc:
             message = str(exc)

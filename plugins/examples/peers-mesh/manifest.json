@@ -1,0 +1,8 @@
+{
+  "name": "peers-mesh",
+  "api_version": 1,
+  "permissions": ["status.read", "export.write"],
+  "interval_seconds": 15,
+  "max_restarts": 3,
+  "budget": {"seconds": 3, "cpu_seconds": 1, "memory_mib": 48}
+}
