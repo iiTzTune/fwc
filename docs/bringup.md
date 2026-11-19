@@ -1,12 +1,31 @@
 # Build and bring up a companion
 
-The reference target is an UP Board with an Atom x5-Z8350, 64-bit UEFI,
-and a USB observation radio. The removable x86-64 EFI boot path also runs in
-QEMU with 512 MiB memory. The included ath9k_htc firmware supports USB radios
-in that family. The Waveshare vendor transport targets Raspberry Pi SPI/GPIO.
-An x86 installation needs a board-compatible transport and its wiring verified.
+The handheld target is a Raspberry Pi Zero 2 W with 512 MiB RAM, a Waveshare
+1.44-inch ST7735S LCD HAT, PiSugar S, and an externally powered Waveshare
+USB-Ethernet hub carrying the Archer T2U Nano. The onboard Wi-Fi provides
+normal connectivity. The x86-64 UP Board image remains available.
 
-## Build
+## Build and check the Pi image
+
+Use an ARM64 Linux build host with Cargo, uv, just, GNU tar and bubblewrap.
+An x86-64 host also needs a working AArch64 binfmt interpreter usable inside
+a mount namespace. On Ubuntu 26.04 the `qemu-user` and `qemu-user-binfmt`
+packages supply user-mode emulation. Check for the `F` flag in
+`/proc/sys/fs/binfmt_misc/qemu-aarch64`. Install `qemu-system-arm` and
+`qemu-efi-aarch64` for the guest boots.
+
+```sh
+just pi-image
+(cd build/image/pi-zero-2w && sha256sum -c SHA256SUMS)
+```
+
+The guest boots a writable copy of the ARM64 disk twice with 512 MiB and
+checks the first-boot identity through both boots. Each boot loads the
+Waveshare display and input, PiSugar S power, dummy display and IIO power
+entry points using the guest's installed Python. Pi firmware, the GPIO
+header, USB hub and battery require the board checks in the ledger.
+
+## Build and check the x86-64 image
 
 On x86-64 Linux install Python 3.11+, GNU tar, Cargo, uv, just and bubblewrap
 with working user namespaces. Allow 8 GiB of build space, internet access for
@@ -37,24 +56,28 @@ slot, and a separate writable data volume.
 
 ## Flash
 
-If you downloaded the release, verify its signatures and decompress the disk
-image first. The commands below assume the image is at
-`build/image/fwc-x86_64.img`. Use the path to the verified download when
-flashing a release. [Release verification](releases/v0.1.0.md)
+For the Pi, use the ARM64 image from the build above and a spare microSD
+card. For the UP Board, use the x86-64 image and a removable drive. Select
+the file for the intended board. For a signed release, verify the signature
+and decompress its disk image first. [Release verification](releases/v0.1.0.md)
 
-Identify an expendable USB drive by its model, serial and capacity. Unmount its
+Identify the selected card or drive by its model, serial and capacity. Unmount its
 partitions. The following command overwrites the selected **whole drive**.
 Set FWC_DRIVE to its stable by-id path, then check the resolved device before
 writing.
 
 ```sh
+FWC_DISK=build/image/pi-zero-2w/fwc-pi-zero-2w.img
 lsblk -o NAME,PATH,MODEL,SERIAL,SIZE,MOUNTPOINTS
 lsblk -o NAME,TYPE,SIZE,MOUNTPOINTS "$FWC_DRIVE"
 test "$(lsblk -dn -o TYPE "$FWC_DRIVE")" = disk &&
-  sudo dd if=build/image/fwc-x86_64.img of="$FWC_DRIVE" bs=4M conv=fsync status=progress
+  sudo dd if="$FWC_DISK" of="$FWC_DRIVE" bs=4M conv=fsync status=progress
 ```
 
-Boot through the board's removable-media UEFI menu with this drive attached.
+Seat the Pi HAT and battery with power disconnected. Set the PiSugar S
+auto-start switch ON for GPIO3 external-power sensing. Connect the hub to
+the USB data port and supply it externally. Insert the microSD card. On
+the x86 board, boot the drive through the removable-media UEFI menu.
 Use 115200 baud on the serial console. The boot selection and Linux slot
 identifier appear there. The core supervises the web service and plugin host.
 The companion UI listens on the device at http://127.0.0.1:8080.
@@ -74,15 +97,17 @@ sudo sh -c 'umask 077; HASH=$(openssl passwd -6) && printf "root:%s:20000:0:9999
 sudo umount /mnt
 ```
 
-Select the dedicated USB radio's phy in `capture.json`. Add the service object
-from `capture-service.json` to the `services` array in `core.json` and reboot.
-The default configuration lets the owner select the radio before observation
-starts. Set SSID preferences and rotation limits using the [capture reference](../capture/README.md).
+The Pi image selects a USB monitor-capable interface automatically. For a
+specific adapter, set `observation_interface` in `capture.json` to the
+source interface. Confirm the T2U Nano USB ID and driver during bring-up.
+The x86 image supplies a separate `capture-service.json` object to add to
+the `services` array in `core.json` after choosing its observation radio.
+Set network preferences and rotation limits using the [capture reference](../capture/README.md).
 Install plugins by copying a reviewed example directory from
 `/usr/share/fwc/examples` to `/var/lib/fwc/plugins` and restarting the host.
 Select hardware drivers and their interpreter using the
-[hardware reference](../drivers/HARDWARE.md). Keep an initial boot log, compare the
-voltage against a meter, check the button and panel visually, and verify the
-watchdog on a designated test board.
+[hardware reference](../drivers/HARDWARE.md). Keep an initial serial boot log. The PiSugar S reports external power.
+Use a separate meter for the cutoff test. Check the LCD, all seven controls
+and the physical watchdog on the designated board.
 
 Record results in the [bring-up evidence ledger](bringup-checklist.md).
