@@ -2,10 +2,11 @@
 
 import json
 import socket
+import sqlite3
 import subprocess
 import threading
 import time
-from contextlib import ExitStack, contextmanager
+from contextlib import ExitStack, closing, contextmanager
 from pathlib import Path
 
 import pytest
@@ -28,7 +29,7 @@ class VirtualRadio:
             select_management(receiver)
             self.started = time.monotonic()
             if channel == 1:
-                for kind in (0x08, 0xB0, 0x80, 0x10):
+                for kind in (0x08, 0xB0, 0x80, 0x10, 0x80):
                     source.send(packet(kind))
             else:
                 self.stop.set()
@@ -54,7 +55,12 @@ def test_virtual_radio_bus(tmp_path):
     path = tmp_path / "bus.sock"
     radio = VirtualRadio()
     settings = Settings(
-        "phy0", "fwcmon0", str(tmp_path / "records"), channels=(1, 6), dwell_ms=500
+        "phy0",
+        "fwcmon0",
+        str(tmp_path / "records"),
+        channels=(1, 6),
+        dwell_ms=500,
+        max_bytes=128,
     )
     with ExitStack() as stack:
         core = subprocess.Popen([binary, tmp_path, config])
@@ -107,3 +113,9 @@ def test_virtual_radio_bus(tmp_path):
                 assert data.keys() == common and event["kind"] == "event"
         thread.join(2)
         assert result and radio.tuned == [1, 6]
+        with closing(sqlite3.connect(tmp_path / "state.sqlite")) as db:
+            indices = db.execute(
+                "SELECT json_extract(data,'$.index') FROM events WHERE topic='capture.rotated' ORDER BY seq"
+            ).fetchall()
+        assert indices == [(1,), (2,)]
+        assert len(list((tmp_path / "records").glob("activity-*.pcap"))) == 2

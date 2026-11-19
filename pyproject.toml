@@ -16,6 +16,7 @@ dev = [
     "fwc-iio",
     "fwc-waveshare",
     "fwc-drivers-waveshare144lcd",
+    "fwc-drivers-pisugar",
     "fwc-plugins",
     "selenium>=4.26,<5",
 ]
@@ -29,6 +30,7 @@ fwc-drivers = { workspace = true }
 fwc-iio = { workspace = true }
 fwc-waveshare = { workspace = true }
 fwc-drivers-waveshare144lcd = { workspace = true }
+fwc-drivers-pisugar = { workspace = true }
 fwc-plugins = { workspace = true }
 
 [tool.ruff]

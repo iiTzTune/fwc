@@ -2,7 +2,7 @@
 name = "fwc-drivers-waveshare144lcd"
 version = "0.1.0"
 requires-python = ">=3.11,<3.14"
-dependencies = ["fwc-capture==0.1.0", "pillow>=10.1"]
+dependencies = ["fwc-capture==0.1.0", "fwc-drivers==0.1.0", "pillow>=10.1"]
 
 
 [build-system]

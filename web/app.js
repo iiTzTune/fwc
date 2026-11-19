@@ -121,6 +121,18 @@ if (route === "records") {
   render().catch(report);
 }
 if (route === "settings") {
+  async function updatePower() {
+    try {
+      const power = await api("power");
+      byId("battery").textContent = power.capability === "coarse"
+        ? (power.external_power ? "External power present. Charge state unknown." : "On battery · discharging.") + " Runtime estimate unavailable with this pack."
+        : "Battery telemetry unavailable.";
+    } catch {
+      byId("battery").textContent = "Power reading unavailable.";
+    }
+  }
+  updatePower();
+  setInterval(() => { if (!document.hidden) updatePower(); }, 5000);
   const form = byId("editor");
   async function load() {
     const values = await api("config");

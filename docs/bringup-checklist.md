@@ -16,15 +16,78 @@ the bands on the physical panel.
 python3 -c 'from fwc.waveshare import Display; Display({}).render(122,250,b"".join(bytes([255 if (y//25)%2 else 0])*16 for y in range(250)))'
 ```
 
-## Open — Battery voltage
+## Open — PiSugar S GPIO3 external-power edge reaches the HAL
 
-Connect the battery sense divider to an IIO ADC. Substitute its actual device
-directory, channel and measured divider ratio. Compare the reading in mV with
-a meter across the battery and record both readings and the ADC tolerance.
+On the Zero 2 W, select the `pisugar-s` power driver, set the PiSugar S
+auto-start switch ON and leave I²C disabled on GPIO3. Connect and disconnect
+the charger while the battery continues supplying the Pi. Check that the
+powered USB hub does not supply the Pi through its upstream cable.
 
 ```sh
-python3 -c 'from fwc.iio import Power; print(Power({"device":"/sys/bus/iio/devices/iio:device0","channel":0,"divider":2}).read_mv())'
+curl -fsS http://127.0.0.1:8080/api/power
 ```
+
+Expected on charger insertion: `capability=coarse`, `external_power=true`,
+`charge_state=unknown`. On removal expect `false` and `discharging`.
+Both samples must have `millivolts=null`. Check both transitions in Settings.
+
+## Open — PiSugar S hardware cutoff under load
+
+Use a disposable test card and the manufacturer's supported battery and
+normal operating load. Record pack voltage and Pi supply voltage with an
+independent meter/logger through the hardware cutoff. Run the following on
+the board and record the serial console on a separately powered computer.
+
+```sh
+while :; do date -u; curl -fsS http://127.0.0.1:8080/api/power; echo; sleep 1; done
+```
+
+Expected: discharging samples until the board supply drops and output stops.
+Correlate the supply drop with the measured pack voltage. The coarse driver
+has no voltage threshold or software shutdown. The hardware cutoff is the
+protection to verify. [PiSugar S specifications](https://docs.pisugar.com/docs/product-wiki/battery/pisugar-s-series)
+
+## Open — Power loss loses at most one state-store sync interval
+
+Record serial output externally while the test device publishes numbered
+probes. Use a fresh run identifier on every trial. On a disposable card,
+interrupt board power at a recorded time during capture, including a trial
+during file rotation. Keep both the PiSugar and the powered hub in mind
+when identifying the supply to interrupt.
+
+```sh
+python3 -u - <<'PYTHON'
+import json, socket, time, uuid
+run = uuid.uuid4().hex
+with socket.socket(socket.AF_UNIX) as sock:
+    sock.connect("/var/lib/fwc/bus.sock")
+    with sock.makefile("rb") as stream:
+        i = 0
+        while True:
+            stamp = time.monotonic_ns()
+            msg = {"op":"publish", "id":f"{run}-{i}", "topic":"power.probe",
+                   "data":{"run":run,"i":i,"time_ns":stamp}}
+            print("submit", run, i, stamp)
+            sock.sendall(json.dumps(msg).encode() + b"\n")
+            assert json.loads(stream.readline())["ok"]
+            print("ack", run, i, stamp)
+            i += 1
+            time.sleep(0.2)
+PYTHON
+```
+
+After reboot substitute the printed run ID and compare the sequence and
+timestamps with the external log.
+
+```sh
+python3 -m sqlite3 /var/lib/fwc/state.sqlite "PRAGMA integrity_check;"
+python3 -m sqlite3 /var/lib/fwc/state.sqlite "SELECT data FROM events WHERE topic='power.probe' AND json_extract(data,'$.run')='$RUN_ID' ORDER BY seq;"
+```
+
+Expected: `ok`, contiguous recovered probes, all acknowledged probes present
+and at most two seconds of submitted activity missing from the tail. Record
+the measured gap for each trial. The two-second requirement covers the state
+store; measure pcap tail recovery separately.
 
 ## Open — M1 watchdog reset
 

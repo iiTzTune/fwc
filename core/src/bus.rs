@@ -127,6 +127,11 @@ impl Bus {
     pub fn drivers(&self) -> Rc<tokio::sync::Mutex<Registry>> {
         self.drivers.clone()
     }
+    pub fn sync_store(&mut self) -> Result<()> {
+        self.store.sync(std::time::Instant::now(), false)?;
+        Ok(())
+    }
+
     fn send(&mut self, id: u64, f: Frame) {
         let c = self.clients.get_mut(&id).unwrap();
         if c.closed {

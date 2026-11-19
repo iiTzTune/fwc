@@ -178,9 +178,13 @@ def run(settings, radio, publisher, stopping=lambda: False, usage=None, control=
                         continue
                     observed = time.time_ns()
                     accepted = observer.accepts(item)
-                    if accepted and not ring.append(item.record, observed):
-                        time.sleep(0.25)
-                        break
+                    if accepted:
+                        previous_index = ring.index
+                        if not ring.append(item.record, observed):
+                            time.sleep(0.25)
+                            break
+                        if ring.index != previous_index:
+                            publisher.publish("capture.rotated", {"index": ring.index})
                     if accepted and read_peers and len(peer_samples) < 32:
                         element = peer_element(packet, item)
                         if element and element not in peer_samples:

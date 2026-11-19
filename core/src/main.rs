@@ -109,7 +109,10 @@ async fn run() -> Result<()> {
         tokio::select! {
             _=term.recv()=>break,
             _=interrupt.recv()=>break,
-            _=tick.tick()=>{supervisor.tick(&mut log)?;bus.borrow_mut().services=supervisor.snapshot();}
+            _=tick.tick()=>{supervisor.tick(&mut log)?;
+                let mut bus = bus.borrow_mut();
+                bus.services = supervisor.snapshot();
+                if let Err(e) = bus.sync_store() { log.write("state_sync_error", json!({"message": e.to_string()}))?; }}
             client=socket.accept()=>{let (s,_)=client?;Bus::accept(&bus,s);}
         }
     }

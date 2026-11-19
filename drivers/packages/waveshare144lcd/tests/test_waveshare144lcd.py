@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 from fwc import waveshare144lcd as hat
+from fwc.drivers import gpio
 from fwc.waveshare144lcd import input_events, linux
 from PIL import Image
 
@@ -29,8 +30,8 @@ class SimulatedST7735S:
         self.chunks = []
 
     def ioctl(self, fd, request, data):
-        assert fd == 123 and request == linux.SET_VALUES
-        bits, mask = linux.LINE_VALUES.unpack(data)
+        assert fd == 123 and request == gpio.SET_VALUES
+        bits, mask = gpio.LINE_VALUES.unpack(data)
         if mask == 1:
             self.reset.append(bool(bits & 1))
         else:
@@ -134,20 +135,21 @@ def test_short_transfer_fails(monkeypatch, panel):
 @pytest.mark.parametrize("control,pin", PINS)
 def test_input_table_and_active_low(monkeypatch, control, pin):
     @contextmanager
-    def acquire(pins, flags):
+    def acquire(pins, flags, consumer):
+        assert consumer == b"fwc-lcd"
         assert pins == tuple(pin for _, pin in PINS)
-        assert flags == linux.INPUT | linux.ACTIVE_LOW | linux.PULL_UP
+        assert flags == gpio.INPUT | gpio.ACTIVE_LOW | gpio.PULL_UP
         yield 101
 
     def ioctl(fd, request, values):
-        assert fd == 101 and request == linux.GET_VALUES
-        assert linux.LINE_VALUES.unpack(values)[1] == 127
+        assert fd == 101 and request == gpio.GET_VALUES
+        assert gpio.LINE_VALUES.unpack(values)[1] == 127
         # The kernel returns logical active bits for physical low inputs.
-        values[:] = linux.LINE_VALUES.pack(
+        values[:] = gpio.LINE_VALUES.pack(
             1 << list(dict(PINS).values()).index(pin), 127
         )
 
-    monkeypatch.setattr(linux, "lines", acquire)
+    monkeypatch.setattr(gpio, "lines", acquire)
     monkeypatch.setattr(linux.fcntl, "ioctl", ioctl)
     driver = entry_points(group="fwc.drivers.input")["waveshare144lcd"].load()({})
     assert driver.read_controls() == [control]
