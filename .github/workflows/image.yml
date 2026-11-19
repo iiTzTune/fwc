@@ -17,9 +17,9 @@ jobs:
             digests: image-digests
             disk: fwc-x86_64.img
           - target: pi-zero-2w
-            runner: ubuntu-24.04
+            runner: ubuntu-26.04
             recipe: pi-image
-            tools: qemu-efi-aarch64 qemu-system-arm qemu-user-static binfmt-support
+            tools: qemu-efi-aarch64 qemu-system-arm qemu-user qemu-user-binfmt
             output: build/image/pi-zero-2w
             digests: pi-zero-2w-digests
             disk: fwc-pi-zero-2w.img
@@ -35,7 +35,7 @@ jobs:
         if: matrix.target == 'pi-zero-2w'
         run: |
           test "$(uname -m)" = x86_64
-          sudo update-binfmts --enable qemu-aarch64
+          sudo systemctl restart systemd-binfmt.service
           cat /proc/sys/fs/binfmt_misc/qemu-aarch64
           grep -Eq '^flags:.*F' /proc/sys/fs/binfmt_misc/qemu-aarch64
           qemu-system-aarch64 --version
