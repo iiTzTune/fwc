@@ -7,16 +7,18 @@ in the device's activity log.
 
 ## Install on a board
 
-The v0.1.0 disk image targets the UP Board x5-Z8350 with 64-bit UEFI and a
-dedicated USB observation radio. On first boot, the device creates its own
-identity and starts the local dashboard and plugin host. Select the dedicated
-radio before enabling capture. The physical board, panel, ADC, buttons and
-watchdog have outstanding bring-up checks.
+The handheld target is a Raspberry Pi Zero 2 W with a Waveshare 1.44-inch LCD
+HAT, a PiSugar S and an Archer T2U Nano on the powered USB-Ethernet hub. The
+Pi build and the original x86-64 build have separate disk images. The Pi
+creates its device identity on first boot and uses the USB radio for observation.
 
-1. Download the flash image and verify the release signature. [Release and verification](docs/releases/v0.1.0.md)
-2. Provision the writable partition and boot the device. [Bring-up guide](docs/bringup.md)
+1. Build the Pi image with `just pi-image`, or use the x86-64 release for the UP Board. [Release verification](docs/releases/v0.1.1.md)
+2. Provision the writable partition and boot the selected image. [Bring-up guide](docs/bringup.md)
 3. Open `http://127.0.0.1:8080/` on the device for the dashboard, or
    `/fallback` for plain status. [Web service](web/README.md)
+
+The hardware session covers physical boot, the panel, controls, power, watchdog
+and radio. Each check has a command and an expected result. [Hardware ledger](docs/bringup-checklist.md)
 
 ## Run a local core
 

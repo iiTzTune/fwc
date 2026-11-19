@@ -5,12 +5,15 @@ use std::{
     fs::{self, File},
     io::Write,
     path::{Path, PathBuf},
-    time::{SystemTime, UNIX_EPOCH},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 pub struct Store {
     db: Connection,
     _lease: File,
+    directory: PathBuf,
+    last_sync: Instant,
+    dirty: bool,
 }
 
 impl Store {
@@ -40,27 +43,52 @@ impl Store {
             tx.execute_batch(include_str!("../migrations/002.sql"))?;
         }
         tx.commit()?;
-        Ok(Self { db, _lease: lease })
+        Ok(Self {
+            db,
+            _lease: lease,
+            directory: dir.to_owned(),
+            last_sync: Instant::now(),
+            dirty: true,
+        })
     }
 
-    pub fn record(&self, id: &str, topic: &str, data: &Value) -> Result<(i64, bool)> {
+    /// SQLite FULL commits already sync the WAL before acknowledgement.
+    pub fn sync(&mut self, now: Instant, force: bool) -> Result<bool> {
+        if !force && (!self.dirty || now.duration_since(self.last_sync) < Duration::from_secs(2)) {
+            return Ok(false);
+        }
+        File::open(self.directory.join("state.sqlite-wal"))?.sync_all()?;
+        File::open(self.directory.join("state.sqlite"))?.sync_all()?;
+        File::open(&self.directory)?.sync_all()?;
+        self.dirty = false;
+        self.last_sync = now;
+        Ok(true)
+    }
+
+    pub fn record(&mut self, id: &str, topic: &str, data: &Value) -> Result<(i64, bool)> {
         let encoded = serde_json::to_string(data)?;
         let added = self.db.execute(
             "INSERT INTO events(id,topic,data) VALUES (?1,?2,?3) ON CONFLICT(id) DO NOTHING",
             params![id, topic, encoded],
         )?;
-        if added == 1 {
-            return Ok((self.db.last_insert_rowid(), true));
+        let result = if added == 1 {
+            self.dirty = true;
+            (self.db.last_insert_rowid(), true)
+        } else {
+            let seq = self
+                .db
+                .query_row(
+                    "SELECT seq FROM events WHERE id=?1 AND topic=?2 AND data=?3",
+                    params![id, topic, encoded],
+                    |r| r.get(0),
+                )
+                .context("event id already has different content")?;
+            (seq, false)
+        };
+        if topic == "capture.rotated" {
+            self.sync(Instant::now(), true)?;
         }
-        let seq = self
-            .db
-            .query_row(
-                "SELECT seq FROM events WHERE id=?1 AND topic=?2 AND data=?3",
-                params![id, topic, encoded],
-                |r| r.get(0),
-            )
-            .context("event id already has different content")?;
-        Ok((seq, false))
+        Ok(result)
     }
 }
 

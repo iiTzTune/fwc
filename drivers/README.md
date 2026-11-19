@@ -87,3 +87,25 @@ The headless display writes a PNG if `output` is configured. Headless power
 defaults to 3700 mV, input defaults to released, and the indicator accepts
 state changes. Run the configuration swap check from the workspace root with
 `cargo build && uv run python core/tests/driver_swap.py`.
+
+## Power status capabilities
+
+Send the core driver request `{"action":"power_status"}` in its usual bus
+envelope. The bridge passes `{"action":"power_status"}` as the power
+driver arguments. The driver advertises a `capability` string and
+implements `read_status()` for structured samples.
+
+| Capability | Result |
+| --- | --- |
+| `none` | External power and voltage are null. Charge state is unknown. This is the default for installed legacy drivers that implement only `read_mv()`. |
+| `coarse` | Reports boolean external-power presence and charge state. Voltage is null. Software skips voltage-based shutdown and runtime estimation. |
+| `full` | Reserved for a source reporting external-power presence, charge state, and a positive integer measured battery voltage in mV. A full device backend is future work. |
+
+A sample from `read_status()` contains `external_power`, `charge_state`
+and `millivolts`. The bridge validates these fields and adds the driver's
+capability to the result. Charge state is one of `unknown`, `charging`,
+`discharging`, or `full`. Failed reads return driver errors. The legacy
+`read_power` operation still calls `read_mv()` on voltage-only drivers.
+
+The PiSugar S package README covers its GPIO3 switch mode, probe commands
+and an INA219-shaped driver stub for a future calibrated sensor.

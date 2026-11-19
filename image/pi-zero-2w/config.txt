@@ -1,0 +1,8 @@
+arm_64bit=1
+enable_uart=1
+kernel=u-boot.bin
+device_tree=fwc-zero-2-w.dtb
+gpio=24=op,dh
+gpio=27=op,dh,pu
+dtparam=i2c_arm=off
+dtparam=spi=on

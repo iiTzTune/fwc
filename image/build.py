@@ -1,5 +1,6 @@
-"""Assemble a reproducible x86-64 companion device image without host mounts."""
+"""Assemble a reproducible companion device image without host mounts."""
 
+import argparse
 import concurrent.futures
 import contextlib
 import datetime
@@ -22,7 +23,9 @@ CACHE = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "fwc-im
 
 def validate(config):
     expected = {"board", "architecture", "slot_mib", "data_mib", "epoch", "files"}
-    if set(config) != expected or config["architecture"] != "x86_64":
+    if config.get("architecture") == "aarch64":
+        expected.add("drivers")
+    if set(config) != expected or config["architecture"] not in {"x86_64", "aarch64"}:
         raise ValueError("Unknown board fields or architecture")
     for key, minimum in (("slot_mib", 384), ("data_mib", 32), ("epoch", 315532800)):
         if type(config[key]) is not int or not minimum <= config[key]:
@@ -43,9 +46,8 @@ def checksum(path):
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
-def fetch(entry):
+def fetch(entry, directory):
     digest, group, url = entry
-    directory = CACHE / "inputs"
     directory.mkdir(parents=True, exist_ok=True)
     path = directory / unquote(Path(urlparse(url).path).name)
     if not path.exists() or checksum(path) != digest:
@@ -79,19 +81,24 @@ def unpack(path, dest):
     subprocess.run(args, check=True)
 
 
-def alpine_roots(work):
-    entries = [
-        line.split() for line in (IMAGE / "alpine.lock").read_text().splitlines()
-    ]
+def alpine_roots(work, pi):
+    lock = "alpine-aarch64.lock" if pi else "alpine.lock"
+    directory = CACHE / ("inputs-aarch64" if pi else "inputs")
+    entries = [line.split() for line in (IMAGE / lock).read_text().splitlines()]
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
-        packages = list(pool.map(fetch, entries))
+        packages = list(pool.map(lambda entry: fetch(entry, directory), entries))
     runtime = work / "root"
     tools = work / "tools"
+    board = work / "board"
+    board.mkdir()
     runtime.mkdir()
     tools.mkdir()
     for group, archive in sorted(
         packages, key=lambda item: (item[0] != "base", item[1].name)
     ):
+        if group == "board":
+            unpack(archive, board)
+            continue
         if group != "tools":
             unpack(archive, runtime)
         if not archive.name.startswith(("linux-lts-", "linux-firmware-")):
@@ -206,7 +213,10 @@ def install_software(runtime, tools, work, config):
     run_inside(tools, work, ["python3", "/src/image/pack.py", "initrd"])
 
 
-def populate_data(work):
+def populate_data(work, config=None):
+    if config is None:
+        config = validate(json.loads((IMAGE / "device.json").read_text()))
+    pi = config["architecture"] == "aarch64"
     data = work / "data"
     data.mkdir()
     services = [
@@ -238,11 +248,10 @@ def populate_data(work):
                 "window_secs": 60,
             }
         )
-    (data / "core.json").write_text(json.dumps({"services": services}, indent=2) + "\n")
     (data / "capture.json").write_text(
         json.dumps(
             {
-                "phy": "phy0",
+                **({} if pi else {"phy": "phy0"}),
                 "interface": "fwcmon0",
                 "directory": "/var/lib/fwc/captures",
             },
@@ -262,12 +271,42 @@ def populate_data(work):
         "restarts": 3,
         "window_secs": 60,
     }
+    core = {"services": services}
+    if pi:
+        services.append(capture)
+        # The QEMU check shares the root slots and DATA with the board build.
+        (work / "root/usr/share/fwc/qemu-core.json").write_text(
+            json.dumps(core, indent=2) + "\n"
+        )
+        core["drivers"] = config["drivers"]
+        core["watchdog"] = "/dev/watchdog0"
+        services.append(
+            {
+                "name": "input",
+                "command": [
+                    "/usr/bin/python3",
+                    "-m",
+                    "fwc.waveshare144lcd.input_events",
+                    "/var/lib/fwc/bus.sock",
+                ],
+                "restarts": 3,
+                "window_secs": 60,
+            }
+        )
+    (data / "core.json").write_text(json.dumps(core, indent=2) + "\n")
     (data / "capture-service.json").write_text(json.dumps(capture, indent=2) + "\n")
 
 
 def main():
-    config = validate(json.loads((IMAGE / "device.json").read_text()))
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--target", choices=("x86_64", "pi-zero-2w"), default="x86_64")
+    args = parser.parse_args()
+    pi = args.target == "pi-zero-2w"
+    description = IMAGE / ("pi-zero-2w/device.json" if pi else "device.json")
+    config = validate(json.loads(description.read_text()))
     output = ROOT / "build/image"
+    if pi:
+        output = output / args.target
     output.mkdir(parents=True, exist_ok=True)
     CACHE.mkdir(parents=True, exist_ok=True)
     # Serialize publication of the disk/slot pair in this checkout.
@@ -275,13 +314,14 @@ def main():
         fcntl.flock(lock, fcntl.LOCK_EX)
         work = Path(stack.enter_context(tempfile.TemporaryDirectory(dir=CACHE)))
         (work / "epoch").write_text(str(config["epoch"]))
-        runtime, tools = alpine_roots(work)
+        (work / "device.json").write_text(json.dumps(config))
+        runtime, tools = alpine_roots(work, pi)
         install_software(runtime, tools, work, config)
-        populate_data(work)
+        populate_data(work, config)
         run_inside(
             tools, work, ["python3", "/src/image/pack.py", "disk"], fixed_time=True
         )
-        for name in ("fwc-slot.ext4", "fwc-x86_64.img", "SHA256SUMS"):
+        for name in ("fwc-slot.ext4", f"fwc-{args.target}.img", "SHA256SUMS"):
             shutil.move(work / name, output / name)
         print((output / "SHA256SUMS").read_text(), end="")
 

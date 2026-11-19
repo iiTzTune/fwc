@@ -83,7 +83,12 @@ bus. Readers open `state.sqlite` with SQLite URI option `mode=ro` and can
 read `events(seq,id,topic,data)` ordered by sequence to recover missed
 records. Data is JSON text. The core migrates the schema transactionally,
 uses WAL with full synchronous commits, and checks the schema version before
-serving clients. Keep SQLite's companion files with the database.
+serving clients. Keep SQLite's companion files with the database. Alongside
+SQLite's full synchronous commits, the core syncs the WAL, database file
+and containing directory on its two-second dirty-state timer. Completing a
+new capture file's first record publishes `capture.rotated` with its numeric
+`index`. The core syncs the store before acknowledging that event, including
+a retry following a failed sync.
 
 `core.jsonl` records timestamp (Unix seconds), kind and data. It rotates
 at 1 MiB with one previous file, `core.jsonl.1`. Snapshot counters cover

@@ -77,16 +77,19 @@ class Device:
         conn.row_factory = sqlite3.Row
         return conn
 
-    def status(self):
+    def core_request(self, message):
         with socket.socket(socket.AF_UNIX) as sock:
             sock.settimeout(3)
             sock.connect(str(self.state / "bus.sock"))
-            sock.sendall(b'{"op":"snapshot"}\n')
+            sock.sendall(json.dumps(message).encode() + b"\n")
             with sock.makefile("rb") as stream:
                 result = json.loads(stream.readline(16385))
         if not result.pop("ok"):
             raise OSError("The core could not provide session status")
         return result
+
+    def status(self):
+        return self.core_request({"op": "snapshot"})
 
     def settings(self, changes=None):
         with self.config_lock:
@@ -425,6 +428,12 @@ class Handler(BaseHTTPRequestHandler):
                 self.reply({"error": "Capture file unavailable"}, 404)
         elif route.path == "/api/networks":
             self.reply(device.networks(route.query))
+        elif route.path == "/api/power":
+            self.reply(
+                device.core_request(
+                    {"op": "driver", "request": {"action": "power_status"}}
+                )["data"]
+            )
         elif route.path == "/api/status":
             self.reply(device.status())
         elif route.path in ("/api/plugins", "/api/peers"):

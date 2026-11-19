@@ -24,6 +24,12 @@ def test_live_contract(device):
         )
         return response
 
+    assert checked("GET", "/api/power") == {
+        "capability": "none",
+        "external_power": None,
+        "charge_state": "unknown",
+        "millivolts": None,
+    }
     common = {"ssid": "Linden", "owned": True, "channel": 6, "time_ns": 123}
     for i in range(3):
         publish(

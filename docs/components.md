@@ -9,7 +9,9 @@
 | fwc-capture | 0.1.0 |
 | fwc-drivers | 0.1.0 |
 | fwc-iio | 0.1.0 |
+| fwc-drivers-pisugar | 0.1.0 |
 | fwc-waveshare | 0.1.0 |
+| fwc-drivers-waveshare144lcd | 0.1.0 |
 | fwc-plugins | 0.1.0 |
 | SQLite activity store schema | 2 |
 | activity-widget | 0.1.0 (plugin API 1) |

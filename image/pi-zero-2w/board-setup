@@ -1,0 +1,19 @@
+#!/bin/sh
+set -eu
+ln -sf /var/lib/fwc/core.json /run/fwc-core.json
+# The virtual board has neither a HAT nor a PiSugar or board watchdog.
+if [ "$(cat /sys/class/dmi/id/product_name 2>/dev/null)" = "FWC ARM image check" ]; then
+    ln -sf /usr/share/fwc/qemu-core.json /run/fwc-core.json
+    exec python3 /usr/lib/fwc/guest_drivers.py
+fi
+modprobe spi_bcm2835
+modprobe spidev
+modprobe bcm2835_wdt
+dev=/sys/bus/spi/devices/spi0.0
+if [ -e "$dev/driver_override" ]; then
+    echo spidev > "$dev/driver_override"
+    if [ -e "$dev/driver" ] && [ "$(basename "$(readlink -f "$dev/driver")")" != spidev ]; then
+        echo spi0.0 > "$dev/driver/unbind"
+    fi
+    [ -e "$dev/driver" ] || echo spi0.0 > /sys/bus/spi/drivers/spidev/bind
+fi

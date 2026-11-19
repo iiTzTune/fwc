@@ -30,6 +30,41 @@ def resolve(role, spec, points=None):
     return driver
 
 
+def power_status(driver):
+    capability = getattr(driver, "capability", "none")
+    if capability == "none":
+        return {
+            "capability": "none",
+            "external_power": None,
+            "charge_state": "unknown",
+            "millivolts": None,
+        }
+    if capability not in ("coarse", "full"):
+        raise ValueError("unknown power capability")
+    sample = driver.read_status()
+    if not isinstance(sample, dict) or sample.keys() != {
+        "external_power",
+        "charge_state",
+        "millivolts",
+    }:
+        raise ValueError("invalid power status fields")
+    if type(sample["external_power"]) is not bool or sample["charge_state"] not in (
+        "unknown",
+        "charging",
+        "discharging",
+        "full",
+    ):
+        raise ValueError("invalid power status")
+    voltage = sample["millivolts"]
+    if capability == "coarse" and voltage is not None:
+        raise ValueError("coarse power status cannot report voltage")
+    if capability == "full" and (
+        type(voltage) is not int or not 0 < voltage <= 2**32 - 1
+    ):
+        raise ValueError("full power status requires a measured voltage")
+    return {"capability": capability, **sample}
+
+
 def status_frame(width, height, message):
     from PIL import Image, ImageDraw, ImageFont
 
@@ -66,6 +101,8 @@ def dispatch(request):
             pixels = bytes.fromhex(args["pixels"])
         driver.render(width, height, pixels)
     elif role == "power":
+        if args == {"action": "power_status"}:
+            return power_status(driver)
         return driver.read_mv()
     elif role == "indicator":
         driver.set(args["enabled"])

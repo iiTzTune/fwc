@@ -1,0 +1,34 @@
+/dts-v1/;
+/plugin/;
+
+/* Route the first PL011 to the header and leave GPIO3 available for power. */
+&uart0 { status = "okay"; pinctrl-0 = <&uart0_gpio14>; };
+&uart1 { status = "disabled"; };
+&bt { status = "disabled"; };
+&{/chosen} { stdout-path = "serial0:115200n8"; };
+&i2c0 { status = "disabled"; };
+&i2c1 { status = "disabled"; };
+&usb { dr_mode = "host"; };
+&{/aliases} { spi0 = "/soc/spi@7e204000"; };
+
+/* Remove the base GPIO hogs from joystick pins 5 and 6. */
+&gpio {
+    pinctrl-0 = <>;
+    hat_spi: hat-spi {
+        brcm,pins = <9 10 11>;
+        brcm,function = <4>;
+    };
+};
+&spi {
+    status = "okay";
+    #address-cells = <1>;
+    #size-cells = <0>;
+    pinctrl-names = "default";
+    pinctrl-0 = <&hat_spi>;
+    cs-gpios = <&gpio 8 1>;
+    lcd@0 {
+        compatible = "sitronix,st7735s";
+        reg = <0>;
+        spi-max-frequency = <16000000>;
+    };
+};

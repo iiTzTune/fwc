@@ -98,7 +98,7 @@ def configuration():
         "allow_ssids": "Selected network names. An empty list observes all eligible names.",
         "deny_ssids": "Excluded network names. This list takes precedence.",
     }
-    defaults = asdict(Settings("phy0", "fwcmon0"))
+    defaults = asdict(Settings())
     assert set(capture["properties"]) == {f.name for f in fields(Settings)}
     for key, description in descriptions.items():
         capture["properties"][key].update(

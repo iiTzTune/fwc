@@ -78,8 +78,9 @@ The Waveshare V4 display and headless indicator accept an empty options object.
 
 | Field | Value | Presence or default | Use |
 | --- | --- | --- | --- |
-| `phy` | string | Required | Dedicated physical radio. Pattern `^phy[0-9]+$`. |
-| `interface` | string | Required | Monitor interface name. Pattern `^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,14}$`. |
+| `phy` | string | Optional | Optional physical radio selection for an explicitly provisioned device. Pattern `^phy[0-9]+$`. |
+| `interface` | string | `"fwcmon0"` | Monitor interface name. Pattern `^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,14}$`. |
+| `observation_interface` | string | Optional | Source USB interface. Omit both selectors to use the first monitor-capable USB radio in physical radio number order. Pattern `^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,14}$`. |
 | `directory` | string | `"captures"` | Directory for rotating observation files. Pattern `^[^\u0000]*$`. |
 | `channels` | list of integer (1–233) | `[1, 6, 11]` | Channel numbers in observation order. Minimum items 1. |
 | `dwell_ms` | integer (10–60000) | `1000` | Milliseconds spent on each channel. |

@@ -6,6 +6,8 @@ requires-python = ">=3.11, <3.14"
 members = [
     "fwc-capture",
     "fwc-drivers",
+    "fwc-drivers-pisugar",
+    "fwc-drivers-waveshare144lcd",
     "fwc-iio",
     "fwc-plugins",
     "fwc-waveshare",
@@ -87,6 +89,34 @@ dependencies = [
 requires-dist = [{ name = "pillow", specifier = ">=10.1" }]
 
 [[package]]
+name = "fwc-drivers-pisugar"
+version = "0.1.0"
+source = { editable = "drivers/packages/pisugar" }
+dependencies = [
+    { name = "fwc-drivers" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "fwc-drivers", specifier = "==0.1.0" }]
+
+[[package]]
+name = "fwc-drivers-waveshare144lcd"
+version = "0.1.0"
+source = { editable = "drivers/packages/waveshare144lcd" }
+dependencies = [
+    { name = "fwc-capture" },
+    { name = "fwc-drivers" },
+    { name = "pillow" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "fwc-capture", specifier = "==0.1.0" },
+    { name = "fwc-drivers", specifier = "==0.1.0" },
+    { name = "pillow", specifier = ">=10.1" },
+]
+
+[[package]]
 name = "fwc-iio"
 version = "0.1.0"
 source = { editable = "drivers/packages/iio" }
@@ -120,6 +150,8 @@ source = { virtual = "." }
 dev = [
     { name = "fwc-capture" },
     { name = "fwc-drivers" },
+    { name = "fwc-drivers-pisugar" },
+    { name = "fwc-drivers-waveshare144lcd" },
     { name = "fwc-iio" },
     { name = "fwc-plugins" },
     { name = "fwc-waveshare" },
@@ -138,6 +170,8 @@ dev = [
 dev = [
     { name = "fwc-capture", editable = "capture" },
     { name = "fwc-drivers", editable = "drivers" },
+    { name = "fwc-drivers-pisugar", editable = "drivers/packages/pisugar" },
+    { name = "fwc-drivers-waveshare144lcd", editable = "drivers/packages/waveshare144lcd" },
     { name = "fwc-iio", editable = "drivers/packages/iio" },
     { name = "fwc-plugins", editable = "plugins" },
     { name = "fwc-waveshare", editable = "drivers/packages/waveshare" },

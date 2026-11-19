@@ -1,0 +1,27 @@
+{
+  "board": "Raspberry Pi Zero 2 W",
+  "architecture": "aarch64",
+  "slot_mib": 768,
+  "data_mib": 128,
+  "epoch": 1735689600,
+  "drivers": {
+    "status_size": [128,128],
+    "display": {"name":"waveshare144lcd"},
+    "input": {"name":"waveshare144lcd"},
+    "power": {"name":"pisugar-s"}
+  },
+  "files": [
+    {"source":"web/index.html","destination":"/usr/share/fwc/web/index.html"},
+    {"source":"web/style.css","destination":"/usr/share/fwc/web/style.css"},
+    {"source":"web/app.js","destination":"/usr/share/fwc/web/app.js"},
+    {"source":"web/fallback.html","destination":"/usr/share/fwc/web/fallback.html"},
+    {"source":"web/server.py","destination":"/usr/share/fwc/web/server.py"},
+    {"source":"web/openapi.json","destination":"/usr/share/fwc/web/openapi.json"},
+    {"source":"image/boot/health.sh","destination":"/usr/lib/fwc/health.sh"},
+    {"source":"image/runtime/boot","destination":"/usr/lib/fwc/boot"},
+    {"source":"image/runtime/report.py","destination":"/usr/lib/fwc/report.py"},
+    {"source":"image/tests/guest_drivers.py","destination":"/usr/lib/fwc/guest_drivers.py"},
+    {"source":"image/pi-zero-2w/board-setup","destination":"/usr/lib/fwc/board-setup"},
+    {"source":"image/pi-zero-2w/inittab","destination":"/etc/inittab"}
+  ]
+}

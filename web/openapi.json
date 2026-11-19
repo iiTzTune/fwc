@@ -685,6 +685,53 @@
           }
         }
       }
+    },
+    "/api/power": {
+      "get": {
+        "summary": "Read power capability and external supply state",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PowerStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Local request required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Device temporarily unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1061,6 +1108,46 @@
           "name",
           "permission",
           "enabled"
+        ],
+        "additionalProperties": false
+      },
+      "PowerStatus": {
+        "type": "object",
+        "properties": {
+          "capability": {
+            "enum": [
+              "none",
+              "coarse",
+              "full"
+            ]
+          },
+          "external_power": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "charge_state": {
+            "enum": [
+              "unknown",
+              "discharging",
+              "charging",
+              "full"
+            ]
+          },
+          "millivolts": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          }
+        },
+        "required": [
+          "capability",
+          "external_power",
+          "charge_state",
+          "millivolts"
         ],
         "additionalProperties": false
       }

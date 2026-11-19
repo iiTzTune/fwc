@@ -32,6 +32,10 @@ board-image:
     just image build
     python3 image/tests/boot_image.py build/image/fwc-x86_64.img
 
+pi-image:
+    python3 image/build.py --target pi-zero-2w
+    python3 image/tests/boot_image.py --target pi-zero-2w build/image/pi-zero-2w/fwc-pi-zero-2w.img
+
 golden-render:
     uv run --locked pytest drivers/tests/test_golden.py
 

@@ -5,44 +5,71 @@ permissions:
   actions: read
 jobs:
   build:
-    runs-on: ubuntu-26.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64
+            runner: ubuntu-26.04
+            recipe: board-image
+            tools: ovmf qemu-system-x86
+            output: build/image
+            digests: image-digests
+            disk: fwc-x86_64.img
+          - target: pi-zero-2w
+            runner: ubuntu-26.04
+            recipe: pi-image
+            tools: qemu-efi-aarch64 qemu-system-arm qemu-user qemu-user-binfmt
+            output: build/image/pi-zero-2w
+            digests: pi-zero-2w-digests
+            disk: fwc-pi-zero-2w.img
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: astral-sh/setup-uv@v7
       - uses: extractions/setup-just@v3
       - name: Install build and guest tools
-        run: .github/scripts/ubuntu-tools bubblewrap ovmf qemu-system-x86 zstd
-      - run: just board-image
+        run: .github/scripts/ubuntu-tools bubblewrap zstd ${{ matrix.tools }}
+      - name: Check ARM emulation on the x86 runner
+        if: matrix.target == 'pi-zero-2w'
+        run: |
+          test "$(uname -m)" = x86_64
+          sudo systemctl restart systemd-binfmt.service
+          cat /proc/sys/fs/binfmt_misc/qemu-aarch64
+          grep -Eq '^flags:.*F' /proc/sys/fs/binfmt_misc/qemu-aarch64
+          qemu-system-aarch64 --version
+      - name: Build image and boot twice
+        run: time just ${{ matrix.recipe }}
       - name: Record image digests
-        working-directory: build/image
-        run: sha256sum fwc-x86_64.img fwc-slot.ext4 > SHA256SUMS
+        working-directory: ${{ matrix.output }}
+        run: sha256sum ${{ matrix.disk }} fwc-slot.ext4 > SHA256SUMS
       - name: Compare with an earlier successful run of this commit
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           prior=$(gh run list --workflow image.yml --commit "$(git rev-parse HEAD)" --status success --limit 30 --json databaseId --jq ".[] | select(.databaseId != $GITHUB_RUN_ID) | .databaseId" | head -1)
           if test -n "$prior"; then
-            gh run download "$prior" --name image-digests --dir "$RUNNER_TEMP/prior-image"
-            diff -u "$RUNNER_TEMP/prior-image/SHA256SUMS" build/image/SHA256SUMS
+            gh run download "$prior" --name "${{ matrix.digests }}" --dir "$RUNNER_TEMP/prior-image"
+            diff -u "$RUNNER_TEMP/prior-image/SHA256SUMS" ${{ matrix.output }}/SHA256SUMS
             echo "Image digests match run $prior" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "First successful build of this commit supplies the comparison digest." >> "$GITHUB_STEP_SUMMARY"
           fi
       - uses: actions/upload-artifact@v4
         with:
-          name: image-digests
-          path: build/image/SHA256SUMS
+          name: ${{ matrix.digests }}
+          path: ${{ matrix.output }}/SHA256SUMS
           if-no-files-found: error
       - name: Compress flash and update artifacts
-        working-directory: build/image
-        run: zstd -T0 -3 fwc-x86_64.img fwc-slot.ext4
+        working-directory: ${{ matrix.output }}
+        run: zstd -T0 -3 ${{ matrix.disk }} fwc-slot.ext4
       - uses: actions/upload-artifact@v4
         with:
-          name: fwc-x86_64
+          name: fwc-${{ matrix.target }}
           path: |
-            build/image/*.zst
-            build/image/SHA256SUMS
+            ${{ matrix.output }}/*.zst
+            ${{ matrix.output }}/SHA256SUMS
           retention-days: 7
           compression-level: 0
           if-no-files-found: error

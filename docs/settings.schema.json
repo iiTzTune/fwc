@@ -425,12 +425,18 @@
         "phy": {
           "type": "string",
           "pattern": "^phy[0-9]+$",
-          "description": "Dedicated physical radio."
+          "description": "Optional physical radio selection for an explicitly provisioned device."
         },
         "interface": {
           "type": "string",
           "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,14}$",
+          "default": "fwcmon0",
           "description": "Monitor interface name."
+        },
+        "observation_interface": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,14}$",
+          "description": "Source USB interface. Omit both selectors to use the first monitor-capable USB radio in physical radio number order."
         },
         "directory": {
           "type": "string",
@@ -440,10 +446,7 @@
           "description": "Directory for rotating observation files."
         }
       },
-      "required": [
-        "phy",
-        "interface"
-      ],
+      "required": [],
       "additionalProperties": false
     },
     "budget": {

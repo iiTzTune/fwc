@@ -36,6 +36,7 @@ pub enum Operation {
         pixels: String,
     },
     ReadPower,
+    PowerStatus,
     SetIndicator {
         enabled: bool,
     },
@@ -194,6 +195,21 @@ impl Registry {
             } => {
                 self.render(width, height, &pixels).await?;
                 Ok(Value::Null)
+            }
+            Operation::PowerStatus => {
+                if self.power.is_none() {
+                    Ok(
+                        json!({"capability":"none","external_power":null,"charge_state":"unknown","millivolts":null}),
+                    )
+                } else {
+                    self.call(
+                        "power",
+                        self.power.as_ref(),
+                        false,
+                        json!({"action":"power_status"}),
+                    )
+                    .await
+                }
             }
             Operation::ReadPower => Ok(json!({"millivolts":self.read_mv().await?})),
             Operation::SetIndicator { enabled } => {

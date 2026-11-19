@@ -42,12 +42,12 @@ fn event_evicts_metric_without_reordering_events() {
 #[test]
 fn committed_records_survive_reopen_and_retries() -> anyhow::Result<()> {
     let dir = tempfile::tempdir()?;
-    let store = Store::open(dir.path())?;
+    let mut store = Store::open(dir.path())?;
     assert!(Store::open(dir.path()).is_err());
     let (seq, fresh) = store.record("one", "observations", &json!({"n":1}))?;
     assert!(fresh);
     drop(store);
-    let store = Store::open(dir.path())?;
+    let mut store = Store::open(dir.path())?;
     assert_eq!(
         store.record("one", "observations", &json!({"n":1}))?,
         (seq, false)
@@ -141,5 +141,28 @@ fn upgrades_existing_activity_store_without_losing_records() -> anyhow::Result<(
             .get::<_, String>(0))?,
         "network.seen"
     );
+    Ok(())
+}
+
+#[test]
+fn state_sync_bounds_dirty_interval() -> anyhow::Result<()> {
+    let dir = tempfile::tempdir()?;
+    let mut store = Store::open(dir.path())?;
+    let start = Instant::now();
+    store.sync(start, true)?;
+    store.record("first", "network.seen", &json!({}))?;
+    assert!(!store.sync(start + Duration::from_secs(1), false)?);
+    assert!(store.sync(start + Duration::from_secs(2), false)?);
+    assert!(!store.sync(start + Duration::from_secs(4), false)?);
+    Ok(())
+}
+
+#[test]
+fn capture_rotation_syncs_before_the_event_is_acknowledged() -> anyhow::Result<()> {
+    let dir = tempfile::tempdir()?;
+    let mut store = Store::open(dir.path())?;
+    store.record("first", "network.seen", &json!({}))?;
+    store.record("rotated", "capture.rotated", &json!({"index":2}))?;
+    assert!(!store.sync(Instant::now() + Duration::from_secs(3), false)?);
     Ok(())
 }
