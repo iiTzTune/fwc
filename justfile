@@ -30,3 +30,6 @@ api-schema-check:
 image-ab-test:
     cargo build --locked --bin fwc-update
     python3 image/tests/qemu_ab.py
+
+plugin-smoke:
+    uv run --locked pytest -q plugins/tests/test_continuity.py

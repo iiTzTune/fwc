@@ -28,6 +28,8 @@ jobs:
         with:
           install-chromedriver: true
       - uses: dtolnay/rust-toolchain@stable
+      - name: Install plugin runtime
+        run: sudo apt-get update && sudo apt-get install -y bubblewrap libseccomp2
       - run: just python
   assets:
     runs-on: ubuntu-latest

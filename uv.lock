@@ -64,6 +64,12 @@ source = { editable = "drivers/packages/iio" }
 name = "fwc-plugins"
 version = "0.1.0"
 source = { editable = "plugins" }
+dependencies = [
+    { name = "fwc-drivers" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "fwc-drivers", editable = "drivers" }]
 
 [[package]]
 name = "fwc-waveshare"
