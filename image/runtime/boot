@@ -30,5 +30,6 @@ mdev -s
 for alias in /sys/bus/*/devices/*/modalias; do
     [ -r "$alias" ] && modprobe -b "$(cat "$alias")" 2>/dev/null || :
 done
+if [ -x /usr/lib/fwc/board-setup ]; then /usr/lib/fwc/board-setup; fi
 /usr/lib/fwc/health.sh /var/lib/fwc/bus.sock &
 python3 /usr/lib/fwc/report.py &

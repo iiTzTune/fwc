@@ -1,0 +1,7 @@
+::sysinit:/usr/lib/fwc/boot
+::respawn:/usr/bin/fwc-core /var/lib/fwc /run/fwc-core.json
+ttyAMA0::respawn:/sbin/getty -L 115200 ttyAMA0 vt100
+tty1::respawn:/sbin/getty 38400 tty1 linux
+::ctrlaltdel:/sbin/reboot
+::shutdown:/bin/sync
+::shutdown:/bin/umount -a -r

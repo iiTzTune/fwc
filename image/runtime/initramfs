@@ -4,7 +4,10 @@ export PATH=/sbin:/bin
 mount -t proc proc /proc
 mount -t sysfs sys /sys
 mount -t devtmpfs dev /dev
-for module in virtio_pci virtio_blk ahci sd_mod mmc_block sdhci_pci sdhci_acpi xhci_pci usb_storage uas ext4 vfat; do
+case "$(cat /proc/device-tree/model 2>/dev/null)" in
+    *"Zero 2 W"*) for module in bcm2835_dma bcm2835 sdhci_iproc; do modprobe "$module" 2>/dev/null || :; done ;;
+esac
+for module in virtio_mmio virtio_pci virtio_blk ahci sd_mod mmc_block sdhci_pci sdhci_acpi xhci_pci usb_storage uas ext4 vfat; do
     modprobe "$module" 2>/dev/null || :
 done
 for word in $(cat /proc/cmdline); do

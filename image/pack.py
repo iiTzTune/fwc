@@ -88,12 +88,16 @@ def initramfs():
         depends[key] = values.split()
     initial = {
         "virtio_pci",
+        "virtio_mmio",
         "virtio_blk",
         "ahci",
         "sd_mod",
         "mmc_block",
         "sdhci_pci",
         "sdhci_acpi",
+        "bcm2835",
+        "bcm2835_dma",
+        "sdhci_iproc",
         "xhci_pci",
         "usb_storage",
         "uas",
@@ -151,7 +155,8 @@ def ext4(name, tree, size, fsid):
         ["debugfs", "-f", "-", dest], input=listings, text=True
     )
     inodes = sorted(
-        {2, 11} | {int(i) for i in re.findall(r"^/(\d+)/", result, re.MULTILINE) if int(i)}
+        {2, 11}
+        | {int(i) for i in re.findall(r"^/(\d+)/", result, re.MULTILINE) if int(i)}
     )
     commands = "".join(
         f"set_inode_field <{inode}> {field} {value}\n"
@@ -178,7 +183,8 @@ def ext4(name, tree, size, fsid):
 
 
 def disk():
-    cfg = json.loads(Path("/src/image/device.json").read_text())
+    cfg = json.loads((WORK / "device.json").read_text())
+    pi = cfg["architecture"] == "aarch64"
     slot = ext4(
         "fwc-slot.ext4", ROOT, cfg["slot_mib"], "188fe787-3e03-4d50-a0ab-000000000001"
     )
@@ -191,9 +197,48 @@ def disk():
     environment = WORK / "grubenv"
     subprocess.run([ROOT / "usr/bin/fwc-update", "init-env", environment], check=True)
     esp = WORK / "esp.fat"
-    make_esp(esp, environment)
-    output = WORK / "fwc-x86_64.img"
-    assemble(output, esp, slot, slot, data)
+    files = {}
+    if pi:
+        board = WORK / "board"
+        dtb = board / "fwc-zero-2-w.dtb"
+        overlay = board / "hat.dtbo"
+        subprocess.run(
+            [
+                "dtc",
+                "-@",
+                "-I",
+                "dts",
+                "-O",
+                "dtb",
+                "-o",
+                overlay,
+                "/src/image/pi-zero-2w/hat.dts",
+            ],
+            check=True,
+        )
+        subprocess.run(
+            [
+                "fdtoverlay",
+                "-i",
+                ROOT / "boot/dtbs-lts/broadcom/bcm2837-rpi-zero-2-w.dtb",
+                "-o",
+                dtb,
+                overlay,
+            ],
+            check=True,
+        )
+        files = {
+            "config.txt": Path("/src/image/pi-zero-2w/config.txt"),
+            dtb.name: dtb,
+            "u-boot.bin": board / "usr/share/u-boot/rpi_arm64/u-boot.bin",
+            **{
+                name: board / "boot" / name
+                for name in ("bootcode.bin", "start.elf", "fixup.dat")
+            },
+        }
+    make_esp(esp, environment, architecture=cfg["architecture"], boot_files=files)
+    output = WORK / ("fwc-pi-zero-2w.img" if pi else "fwc-x86_64.img")
+    assemble(output, esp, slot, slot, data, pi=pi)
     with (WORK / "SHA256SUMS").open("w") as listing:
         for path in [output, slot]:
             with path.open("rb") as source:
