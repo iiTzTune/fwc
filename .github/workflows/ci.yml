@@ -26,7 +26,7 @@ jobs:
       - uses: extractions/setup-just@v3
       - uses: dtolnay/rust-toolchain@stable
       - name: Install plugin runtime
-        run: sudo apt-get update && sudo apt-get install -y bubblewrap libseccomp2
+        run: .github/scripts/ubuntu-tools bubblewrap libseccomp2
       - name: Check runner browser and driver
         run: |
           google-chrome --version
@@ -50,8 +50,7 @@ jobs:
       - uses: extractions/setup-just@v3
       - name: Install guest boot tools
         run: |
-          sudo apt-get update
-          sudo apt-get install -y grub-efi-amd64-bin gdisk mtools dosfstools ovmf qemu-system-x86 linux-image-generic
+          .github/scripts/ubuntu-tools grub-efi-amd64-bin gdisk mtools dosfstools ovmf qemu-system-x86 linux-image-generic
           kernel=$(find /boot -name 'vmlinuz-*' | sort -V | tail -1)
           sudo install -m 644 "$kernel" "$RUNNER_TEMP/fwc-kernel"
           echo "FWC_TEST_KERNEL=$RUNNER_TEMP/fwc-kernel" >> "$GITHUB_ENV"
