@@ -1,8 +1,38 @@
 <!doctype html>
 <html lang="en">
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Field Wireless Companion</title>
-<h1>Field Wireless Companion</h1>
-<p>Device status is unavailable.</p>
-</html>
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Field Wireless Companion</title><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script>
+</head>
+<body>
+<header><div class="brand"><span class="mark" aria-hidden="true">◉</span> Field Wireless Companion</div>
+<nav aria-label="Main navigation"><a href="/">Session</a><a href="/records">Records</a><a href="/settings">Settings</a></nav></header>
+<main>
+<p id="notice" role="status"></p>
+<section id="session" hidden>
+<div class="title"><h1>Observation session</h1><span id="live" class="status">Connecting</span></div>
+<div class="metrics"><article><span>Events committed</span><strong id="committed">—</strong></article><article><span>Services running</span><strong id="running">—</strong></article><article><span>Bus clients</span><strong id="clients">—</strong></article></div>
+<div class="columns"><section class="panel"><h2>Activity log</h2><ol id="activity"><li>Listening for new activity…</li></ol></section><section class="panel"><h2>Services</h2><ul id="services"></ul><h2>Plugins</h2><ul id="plugins"></ul><h2>Peers</h2><ul id="peers"></ul></section></div>
+</section>
+<section id="records" hidden>
+<div class="title"><h1>Network records</h1></div>
+<div class="panel"><div class="scroll"><table><thead><tr><th>Network</th><th>Identifier</th><th>Channel</th><th>Last observed</th></tr></thead><tbody id="networks"></tbody></table></div>
+<p id="empty" hidden>No networks recorded.</p>
+<div class="paging"><button id="previous" disabled>Previous</button><span id="page"></span><button id="next" disabled>Next</button></div></div>
+</section>
+<section id="settings" hidden>
+<div class="title"><h1>Observation settings</h1></div>
+<form id="editor" class="panel"><fieldset disabled><legend>Channel scanner</legend>
+<label>Channels <input required name="channels" placeholder="1, 6, 11"></label>
+<label>Dwell time (ms) <input required name="dwell_ms" type="number" min="10" max="60000"></label>
+</fieldset><fieldset disabled><legend>Capture files</legend>
+<label>Maximum bytes per file <input required type="number" name="max_bytes" min="128" max="2147483648"></label>
+<label>Maximum file count <input required type="number" name="file_count" min="1" max="1024"></label>
+</fieldset><fieldset disabled><legend>Network names</legend>
+<label>Allow list · one name per line <textarea rows="3" name="allow_ssids"></textarea></label>
+<label>Deny list · one name per line <textarea rows="3" name="deny_ssids"></textarea></label>
+</fieldset><div class="form-end"><span>Changes apply on the next capture worker start.</span><button type="submit" disabled>Save settings</button></div></form>
+</section>
+<noscript><p>Open the <a href="/fallback">plain status page</a> for a session summary.</p></noscript>
+</main><footer><a href="/fallback">Plain status page</a> · <a href="/openapi.json">API schema</a></footer>
+</body></html>

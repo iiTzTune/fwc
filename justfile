@@ -16,10 +16,13 @@ python:
 
 web:
     mkdir -p build/web
-    cp web/index.html build/web/index.html
+    cp web/index.html web/fallback.html web/server.py web/app.js web/style.css web/openapi.json build/web/
 
 image: web
     uv run --locked python image/dry_run.py
 
 golden-render:
     uv run --locked pytest drivers/tests/test_golden.py
+
+api-schema-check:
+    uv run --locked pytest -q web/tests/test_api.py
