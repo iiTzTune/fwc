@@ -1,0 +1,11 @@
+{
+  "sector_bytes": 512,
+  "alignment_sectors": 2048,
+  "disk_guid": "d4277f77-3392-4fbe-9b37-ea8216000000",
+  "partitions": [
+    {"label": "FWC-BOOT", "type": "ef00", "guid": "d4277f77-3392-4fbe-9b37-ea8216000001"},
+    {"label": "FWC-A", "type": "8300", "guid": "d4277f77-3392-4fbe-9b37-ea8216000002"},
+    {"label": "FWC-B", "type": "8300", "guid": "d4277f77-3392-4fbe-9b37-ea8216000003"},
+    {"label": "FWC-DATA", "type": "8300", "guid": "d4277f77-3392-4fbe-9b37-ea8216000004"}
+  ]
+}

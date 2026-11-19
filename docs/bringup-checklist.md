@@ -52,3 +52,21 @@ run_id=$(gh run list --workflow ci.yml --commit "$(git rev-parse HEAD)" --json d
 gh run watch "$run_id" --exit-status
 gh run view "$run_id" --json conclusion,headSha,url
 ```
+
+## Open — Board slot handoff and repeated watchdog resets
+
+On the designated A/B board, start from a healthy A slot, install a known
+working B update using its released slot artifact and digest, and reboot.
+After the health check confirms B, verify the previous slot is A. Perform the
+M1 watchdog check above twice on consecutive B boots. Check the reset indication
+after each, and the automatic return to A. Record the boot IDs and selection
+output. Also confirm with the board watchdog documentation or serial trace that
+its timer covers the firmware-to-kernel handoff; QEMU exercises slot selection.
+
+```sh
+fwc-update install "$SLOT_ARTIFACT_URL" "$SLOT_SHA256"
+reboot
+# After each boot
+cat /proc/cmdline /sys/class/watchdog/watchdog0/bootstatus
+grub-editenv /boot/efi/EFI/FWC/grubenv list
+```

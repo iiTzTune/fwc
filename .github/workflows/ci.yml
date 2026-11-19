@@ -36,3 +36,17 @@ jobs:
       - uses: astral-sh/setup-uv@v7
       - uses: extractions/setup-just@v3
       - run: just image
+  update:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: extractions/setup-just@v3
+      - name: Install guest boot tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y grub-efi-amd64-bin gdisk mtools dosfstools ovmf qemu-system-x86 linux-image-generic
+          kernel=$(find /boot -name 'vmlinuz-*' | sort -V | tail -1)
+          sudo install -m 644 "$kernel" "$RUNNER_TEMP/fwc-kernel"
+          echo "FWC_TEST_KERNEL=$RUNNER_TEMP/fwc-kernel" >> "$GITHUB_ENV"
+      - run: just image-ab-test

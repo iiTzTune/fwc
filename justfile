@@ -1,4 +1,4 @@
-ci: rust python image
+ci: rust python image image-ab-test
 
 rust:
     cargo fmt --all -- --check
@@ -26,3 +26,7 @@ golden-render:
 
 api-schema-check:
     uv run --locked pytest -q web/tests/test_api.py
+
+image-ab-test:
+    cargo build --locked --bin fwc-update
+    python3 image/tests/qemu_ab.py
