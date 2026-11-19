@@ -1,11 +1,40 @@
 import argparse
 import fcntl
 import signal
+import subprocess
+import sys
+import time
 from pathlib import Path
 
 from .control import Commands, Control
-from .radio import LinuxRadio
+from .radio import LinuxRadio, RadioUnavailable
 from .worker import Publisher, read_settings, run
+
+
+def observe(settings, bus, publisher):
+    previous = None
+    while True:
+        radio = LinuxRadio(settings)
+        try:
+            with radio, Commands(bus) as commands:
+                previous = None
+                run(
+                    settings,
+                    radio,
+                    publisher,
+                    control=Control(bus.parent, settings, commands),
+                )
+            return
+        except RadioUnavailable as error:
+            message = str(error)
+        except (OSError, subprocess.SubprocessError):
+            if radio.selected is None or radio.attached():
+                raise
+            message = "observation radio disconnected"
+        if previous != message:
+            print(message, file=sys.stderr, flush=True)
+            previous = message
+        time.sleep(2)
 
 
 def main():
@@ -25,9 +54,7 @@ def main():
     try:
         with (directory / "capture.lock").open("a") as lease:
             fcntl.flock(lease, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            with LinuxRadio(settings) as radio, Commands(args.bus) as commands:
-                control = Control(args.bus.parent, settings, commands)
-                run(settings, radio, publisher, control=control)
+            observe(settings, args.bus, publisher)
     finally:
         publisher.close()
 

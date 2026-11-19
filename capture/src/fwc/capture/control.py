@@ -116,7 +116,8 @@ class Control:
                 changes = previous[1] if previous and previous[0] == plugin else {}
                 value = changes | cmd["changes"]
                 common = {k: v for k, v in value.items() if k != "dwell_by_channel"}
-                type(self.defaults).parse(asdict(self.defaults) | common)
+                base = {k: v for k, v in asdict(self.defaults).items() if v is not None}
+                type(self.defaults).parse(base | common)
             self.overrides[permission] = (plugin, value)
             return result, permission
         except PermissionDenied as exc:

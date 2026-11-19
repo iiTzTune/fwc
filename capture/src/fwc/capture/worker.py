@@ -18,8 +18,8 @@ from .storage import Ring
 
 @dataclass(frozen=True)
 class Settings:
-    phy: str
-    interface: str
+    phy: str | None = None
+    interface: str = "fwcmon0"
     directory: str = "captures"
     channels: tuple = (1, 6, 11)
     dwell_ms: int = 1000
@@ -28,17 +28,20 @@ class Settings:
     allow_ssids: tuple = ()
     deny_ssids: tuple = ()
 
+    observation_interface: str | None = None
+
     @classmethod
     def parse(cls, obj):
         if not isinstance(obj, dict) or set(obj) - {f.name for f in fields(cls)}:
             raise ValueError("unknown capture settings or invalid object")
-        if not {"interface", "phy"} <= obj.keys():
-            raise ValueError("interface and phy are required")
         config = cls(**obj)
         for name, pattern in (
             ("interface", r"[a-zA-Z0-9][a-zA-Z0-9_.-]{0,14}"),
             ("phy", r"phy[0-9]+"),
+            ("observation_interface", r"[a-zA-Z0-9][a-zA-Z0-9_.-]{0,14}"),
         ):
+            if name not in obj:
+                continue
             value = getattr(config, name)
             if not isinstance(value, str) or not re.fullmatch(pattern, value):
                 raise ValueError(f"invalid {name}")
