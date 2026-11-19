@@ -1,4 +1,4 @@
-ci: rust python image image-ab-test board-image
+ci: rust python image image-ab-test board-image docs
 
 rust:
     cargo fmt --all -- --check
@@ -44,3 +44,6 @@ image-ab-test:
 
 plugin-smoke:
     uv run --locked pytest -q plugins/tests/test_continuity.py
+
+docs:
+    uv run --locked python docs/build.py

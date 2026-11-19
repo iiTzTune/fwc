@@ -1,0 +1,594 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Field Wireless Companion configuration models",
+  "$defs": {
+    "service": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "\\S",
+          "description": "Distinct nonblank name."
+        },
+        "command": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[^\\u0000]*$"
+          },
+          "minItems": 1,
+          "description": "Program followed by its arguments. The first element must be nonblank."
+        },
+        "restarts": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4294967295,
+          "description": "Restart attempts allowed per window after the initial start."
+        },
+        "window_secs": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4294967295,
+          "description": "Rolling restart window in seconds."
+        }
+      },
+      "required": [
+        "name",
+        "command",
+        "restarts",
+        "window_secs"
+      ],
+      "additionalProperties": false
+    },
+    "iio": {
+      "type": "object",
+      "properties": {
+        "device": {
+          "type": "string",
+          "pattern": "^/",
+          "description": "Absolute path on the device."
+        },
+        "channel": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 0,
+          "description": "IIO voltage channel number."
+        },
+        "divider": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 1,
+          "description": "Ratio of battery voltage to input voltage."
+        }
+      },
+      "required": [
+        "device"
+      ],
+      "additionalProperties": false
+    },
+    "dummy-display": {
+      "type": "object",
+      "properties": {
+        "output": {
+          "type": "string",
+          "pattern": "\\S",
+          "description": "Optional path for the rendered PNG."
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "dummy-power": {
+      "type": "object",
+      "properties": {
+        "millivolts": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295,
+          "default": 3700,
+          "description": "Reading returned to the core."
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "dummy-input": {
+      "type": "object",
+      "properties": {
+        "pressed": {
+          "type": "boolean",
+          "default": false,
+          "description": "Button state returned to the core."
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "empty-options": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "display": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "\\S",
+          "description": "Installed entry-point name."
+        },
+        "options": {
+          "type": "object",
+          "default": {},
+          "description": "Options accepted by the selected driver."
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "name": {
+                "const": "dummy"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "options": {
+                "$ref": "#/$defs/dummy-display"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "name": {
+                "const": "waveshare-2in13-v4"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "options": {
+                "$ref": "#/$defs/empty-options"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "power": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "\\S",
+          "description": "Installed entry-point name."
+        },
+        "options": {
+          "type": "object",
+          "default": {},
+          "description": "Options accepted by the selected driver."
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "name": {
+                "const": "dummy"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "options": {
+                "$ref": "#/$defs/dummy-power"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "name": {
+                "const": "iio-voltage"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "options": {
+                "$ref": "#/$defs/iio"
+              }
+            },
+            "required": [
+              "options"
+            ]
+          }
+        }
+      ]
+    },
+    "indicator": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "\\S",
+          "description": "Installed entry-point name."
+        },
+        "options": {
+          "type": "object",
+          "default": {},
+          "description": "Options accepted by the selected driver."
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "name": {
+                "const": "dummy"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "options": {
+                "$ref": "#/$defs/empty-options"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "input": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "\\S",
+          "description": "Installed entry-point name."
+        },
+        "options": {
+          "type": "object",
+          "default": {},
+          "description": "Options accepted by the selected driver."
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "name": {
+                "const": "dummy"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "options": {
+                "$ref": "#/$defs/dummy-input"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "registry": {
+      "type": "object",
+      "properties": {
+        "python": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^/",
+              "description": "Absolute path on the device."
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Driver interpreter. Defaults to python3 on PATH."
+        },
+        "status_size": {
+          "anyOf": [
+            {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "type": "integer",
+                  "minimum": 64,
+                  "maximum": 1024
+                },
+                {
+                  "type": "integer",
+                  "minimum": 32,
+                  "maximum": 1024
+                }
+              ],
+              "minItems": 2,
+              "maxItems": 2
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": [
+            122,
+            250
+          ],
+          "description": "Diagnostic frame width and height in pixels."
+        },
+        "display": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/display"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Select a display driver by name and options."
+        },
+        "power": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/power"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Select a power driver by name and options."
+        },
+        "indicator": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/indicator"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Select an indicator driver by name and options."
+        },
+        "input": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/input"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Select an input driver by name and options."
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "core": {
+      "type": "object",
+      "properties": {
+        "services": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/service"
+          },
+          "default": [],
+          "description": "Supervised processes. Service names must be distinct."
+        },
+        "watchdog": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^/",
+              "description": "Absolute path on the device."
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Linux watchdog device to feed during service checks."
+        },
+        "drivers": {
+          "$ref": "#/$defs/registry",
+          "default": {},
+          "description": "Driver selections available to the core."
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "capture-paths": {
+      "type": "object",
+      "properties": {
+        "phy": {
+          "type": "string",
+          "pattern": "^phy[0-9]+$",
+          "description": "Dedicated physical radio."
+        },
+        "interface": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,14}$",
+          "description": "Monitor interface name."
+        },
+        "directory": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[^\\u0000]*$",
+          "default": "captures",
+          "description": "Directory for rotating observation files."
+        }
+      },
+      "required": [
+        "phy",
+        "interface"
+      ],
+      "additionalProperties": false
+    },
+    "budget": {
+      "type": "object",
+      "properties": {
+        "seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60,
+          "description": "Elapsed seconds per invocation."
+        },
+        "cpu_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10,
+          "description": "CPU seconds per invocation."
+        },
+        "memory_mib": {
+          "type": "integer",
+          "minimum": 32,
+          "maximum": 96,
+          "description": "Address-space limit in MiB."
+        }
+      },
+      "required": [
+        "seconds",
+        "cpu_seconds",
+        "memory_mib"
+      ],
+      "additionalProperties": false
+    },
+    "plugin": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,39}$",
+          "description": "Must match its directory name."
+        },
+        "api_version": {
+          "const": 1,
+          "description": "Plugin SDK contract implemented by main.py."
+        },
+        "permissions": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "status.read",
+              "networks.read",
+              "widget.write",
+              "export.write",
+              "display.write"
+            ]
+          },
+          "description": "Inputs the host supplies and results the plugin may produce."
+        },
+        "interval_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3600,
+          "description": "Delay in seconds following a successful invocation."
+        },
+        "max_restarts": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10,
+          "description": "Retries allowed after consecutive failed invocations."
+        },
+        "budget": {
+          "$ref": "#/$defs/budget",
+          "description": "Per-invocation resource limits."
+        }
+      },
+      "required": [
+        "name",
+        "api_version",
+        "permissions",
+        "interval_seconds",
+        "max_restarts",
+        "budget"
+      ],
+      "additionalProperties": false
+    },
+    "mapping": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string",
+          "description": "Path relative to the project root."
+        },
+        "destination": {
+          "type": "string",
+          "pattern": "^/",
+          "description": "Absolute path on the device."
+        }
+      },
+      "required": [
+        "source",
+        "destination"
+      ],
+      "additionalProperties": false
+    },
+    "device": {
+      "type": "object",
+      "properties": {
+        "board": {
+          "type": "string",
+          "description": "Reference board and firmware."
+        },
+        "architecture": {
+          "const": "x86_64",
+          "description": "Target processor architecture."
+        },
+        "slot_mib": {
+          "type": "integer",
+          "minimum": 384,
+          "description": "Capacity of each OS slot in MiB."
+        },
+        "data_mib": {
+          "type": "integer",
+          "minimum": 32,
+          "description": "Capacity of the persistent volume in MiB."
+        },
+        "epoch": {
+          "type": "integer",
+          "minimum": 315532800,
+          "description": "Unix timestamp used for reproducible assembly."
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/mapping"
+          },
+          "description": "File mappings. Paths must not contain parent traversal."
+        }
+      },
+      "required": [
+        "board",
+        "architecture",
+        "slot_mib",
+        "data_mib",
+        "epoch",
+        "files"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

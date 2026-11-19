@@ -89,6 +89,7 @@ dev = [
     { name = "fwc-plugins" },
     { name = "fwc-waveshare" },
     { name = "jsonschema" },
+    { name = "markdown" },
     { name = "openapi-spec-validator" },
     { name = "pillow" },
     { name = "pytest" },
@@ -105,6 +106,7 @@ dev = [
     { name = "fwc-plugins", editable = "plugins" },
     { name = "fwc-waveshare", editable = "drivers/packages/waveshare" },
     { name = "jsonschema", specifier = ">=4.18" },
+    { name = "markdown", specifier = ">=3.7,<4" },
     { name = "openapi-spec-validator", specifier = ">=0.7,<0.9" },
     { name = "pillow", specifier = ">=10.1" },
     { name = "pytest", specifier = ">=8" },
@@ -194,6 +196,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/dd/0b/3effaa4ec12ef98c57cd39da8f36f8d93817e9b5e7875b0d57f4637ee645/lazy_object_proxy-1.13.0-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:65a369a41028bd2ba53dd31da0f6ee97682b70bcf2bf7413cb69ba11c63e4fd4", size = 70677, upload-time = "2026-10-20T01:05:47.399Z" },
     { url = "https://files.pythonhosted.org/packages/bb/6b/6239ba7aa95a1a9f383c54050a37af4d6da449af2b711240154411623646/lazy_object_proxy-1.13.0-cp313-cp313-win_amd64.whl", hash = "sha256:54fdf11db2733dfd8dd8177f79d8d9c80dd99a912c0b1a8906412306ad18ade2", size = 25818, upload-time = "2026-10-17T16:37:46.93Z" },
     { url = "https://files.pythonhosted.org/packages/1c/20/cd330c8425ad9e0c57b8cc3a72d4c64b60d7525d2cb946c588d3ee66f6f1/lazy_object_proxy-1.13.0-cp313-cp313-win_arm64.whl", hash = "sha256:042284eea98fc08b9d347e43b7c258e6c862b4c03d5881d536bc61d48e6be88e", size = 24473, upload-time = "2026-10-17T16:37:47.919Z" },
+]
+
+[[package]]
+name = "markdown"
+version = "3.11.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ca/eb/dc0fd6eff604bfb870b7fb68b90985a32caaf3c76f67736bbf7f438acd59/markdown-3.11.3.tar.gz", hash = "sha256:81eb91631dc97ad1efbc76019ef0f80fe90ca49ddf81546752d79989c3bfff3e", size = 498810, upload-time = "2026-11-05T20:30:52.926Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/81/6f/1fa8970e960e5c832874399e6efa564870ade8206d57fef5d5e296b834f5/markdown-3.11.3-py3-none-any.whl", hash = "sha256:e1a31a112232504d753e5c01bb8c2de90d3f0ba986b063e10770cf7695b09e73", size = 116758, upload-time = "2026-11-05T20:30:51.775Z" },
 ]
 
 [[package]]

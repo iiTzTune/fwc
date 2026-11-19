@@ -42,11 +42,11 @@ kill -STOP "$(pgrep -x fwc-core)"
 cat /proc/sys/kernel/random/boot_id /sys/class/watchdog/watchdog0/bootstatus
 ```
 
-## Open — Hosted GitHub Actions
+## Verified — Hosted GitHub Actions
 
-The public repository is connected at iiTzTune/fwc. The initial hosted run
-identified a browser and driver version mismatch. Check the replacement run
-for the committed fix and record its conclusion.
+GitHub Actions passed all six jobs for commit `16bf6be`, covering Rust,
+Python 3.11–3.13, the web and image assets, and the UEFI rollback check.
+[Hosted run 44525835238](https://github.com/iiTzTune/fwc/actions/runs/44525835238)
 
 ```sh
 run_id=$(gh run list --workflow ci.yml --commit "$(git rev-parse HEAD)" --json databaseId --jq '.[0].databaseId')
@@ -100,7 +100,20 @@ cat /proc/bus/input/devices
 evtest "$BUTTON_EVENT_DEVICE"
 ```
 
-## Hosted image identity check
+## Verified — Hosted image identity
+
+Two independent GitHub Actions runs built commit `16bf6be` from clean
+checkouts, booted their disk images twice in QEMU and uploaded the binaries.
+Both SHA-256 manifests matched each other and the clean local build.
+[Push run](https://github.com/iiTzTune/fwc/actions/runs/44525834805) ·
+[Manual dispatch](https://github.com/iiTzTune/fwc/actions/runs/44525868298)
+
+| Artifact | SHA-256 |
+| --- | --- |
+| fwc-x86_64.img | `2f73da265e4b3ae5effaba68f2de599f2cb7ae3f76a2951f9cf21ba06926e763` |
+| fwc-slot.ext4 | `8413efe952e4de63adc9cd91d69d65cad8ffcbb2aeea14bcc05213c97d045854` |
+
+### Repeat the hosted comparison
 
 Run the image workflow twice for one commit, waiting for each run to finish
 before starting the next. Compare the two uploaded checksum manifests and

@@ -10,7 +10,7 @@ An x86 installation needs a board-compatible transport and its wiring verified.
 
 On x86-64 Linux install Python 3.11+, GNU tar, Cargo, uv, just and bubblewrap
 with working user namespaces. Allow 8 GiB of build space, internet access for
-the initial locked Alpine packages, wheels and Rust sources, and 2 GiB for
+the initial locked Alpine packages, wheels and Rust sources, and 3 GiB for
 outputs. The builder runs without host mounts or elevated privileges. Run from
 a clean checkout.
 
@@ -36,6 +36,11 @@ for the M6 installer. The disk image contains the EFI volume, two copies of the
 slot, and a separate writable data volume.
 
 ## Flash
+
+If you downloaded the release, verify its signatures and decompress the disk
+image first. The commands below assume the image is at
+`build/image/fwc-x86_64.img`. Use the path to the verified download when
+flashing a release. [Release verification](releases/v0.1.0.md)
 
 Identify an expendable USB drive by its model, serial and capacity. Unmount its
 partitions. The following command overwrites the selected **whole drive**.
