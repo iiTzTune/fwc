@@ -8,7 +8,7 @@ LEGACY = frozenset(
 )
 RADIO = frozenset({"radio.tx", "radio.config", "radio.raw"})
 PERMISSIONS = LEGACY | RADIO | {"network.out"}
-CONFIG_KEYS = {"channels", "dwell_ms", "file_count", "max_bytes"}
+CONFIG_KEYS = {"channels", "dwell_ms", "dwell_by_channel", "file_count", "max_bytes"}
 
 
 class PermissionDenied(ValueError):
@@ -52,6 +52,27 @@ def require(granted, requested):
         raise PermissionDenied(name)
 
 
+def radio_grants(permission):
+    return {"radio.tx", permission}
+
+
+def check_dwell_map(values):
+    if not isinstance(values, dict) or len(values) > 233:
+        raise ValueError("expected a channel dwell map")
+    for key, dwell in values.items():
+        if not (
+            isinstance(key, str)
+            and key.isascii()
+            and key.isdigit()
+            and len(key) <= 3
+            and 1 <= int(key) <= 233
+            and str(int(key)) == key
+        ):
+            raise ValueError("expected a channel number from 1 through 233")
+        if type(dwell) is not int or not 10 <= dwell <= 60000:
+            raise ValueError("channel dwell must be between 10 and 60000 milliseconds")
+
+
 def command_permission(command):
     if not isinstance(command, dict):
         raise TypeError("expected radio command")
@@ -63,5 +84,7 @@ def command_permission(command):
     if command.get("op") == "configure" and command.keys() == {"op", "changes"}:
         changes = command["changes"]
         if isinstance(changes, dict) and changes and changes.keys() <= CONFIG_KEYS:
+            if "dwell_by_channel" in changes:
+                check_dwell_map(changes["dwell_by_channel"])
             return "radio.config"
     raise ValueError("unsupported radio command")

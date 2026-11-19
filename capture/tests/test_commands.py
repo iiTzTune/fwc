@@ -73,7 +73,7 @@ def test_invalid_config_leaves_capture_settings_intact(tmp_path, changes):
         tmp_path, Settings("phy0", "fwcmon0"), Commands(tmp_path / "bus.sock")
     )
     (tmp_path / "plugin-config.json").write_text(
-        '{"plugins":{"scan":{"permissions":["radio.config"]}}}'
+        '{"plugins":{"scan":{"permissions":["radio.config","radio.tx"]}}}'
     )
     output = Publisher()
     submit(control.commands, "scan", {"op": "configure", "changes": changes})
@@ -87,15 +87,19 @@ def test_config_is_bounded_by_its_owner_grant(tmp_path):
         tmp_path, Settings("phy0", "fwcmon0"), Commands(tmp_path / "bus.sock")
     )
     grants = tmp_path / "plugin-config.json"
-    grants.write_text('{"plugins":{"scan":{"permissions":["radio.config"]}}}')
+    grants.write_text(
+        '{"plugins":{"scan":{"permissions":["radio.config","radio.tx"]}}}'
+    )
     output = Publisher()
     changes = {"channels": [1, 6], "dwell_ms": 300, "max_bytes": 500, "file_count": 3}
     submit(control.commands, "scan", {"op": "configure", "changes": changes})
     assert control.prepare(output)
     assert control.overrides == {"radio.config": ("scan", changes)}
-    submit(control.commands, "scan", {"op": "set_channel", "channel": 11})
+    grants.write_text('{"plugins":{"scan":{"permissions":["radio.config"]}}}')
+    submit(control.commands, "scan", {"op": "configure", "changes": changes})
     control.prepare(output)
     assert output.records[-1][1]["error"]["permission"] == "radio.tx"
+    assert not control.overrides
     grants.write_text("{")
     control.prepare(output)
     assert not control.overrides
@@ -111,3 +115,13 @@ def test_frame_commands_have_no_handler(tmp_path, op):
     assert control.prepare(output) is None
     assert not control.overrides
     assert output.records[-1][1]["error"]["code"] == "invalid_command"
+
+
+@pytest.mark.parametrize(
+    "bad", [{"01": 30}, {"234": 30}, {"1": True}, {"11": 60001}, [40]]
+)
+def test_transient_dwell_validation(bad):
+    from fwc.capture.contract import command_permission
+
+    with pytest.raises(ValueError):
+        command_permission({"op": "configure", "changes": {"dwell_by_channel": bad}})

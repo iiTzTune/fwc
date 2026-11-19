@@ -21,6 +21,7 @@ from fwc.capture.contract import (
     PermissionDenied,
     command_permission,
     plugin_config,
+    radio_grants,
     require,
 )
 
@@ -201,7 +202,9 @@ async def deliver(package, result, directory):
         if result.keys() != {"action", "command"}:
             raise ValueError("invalid radio result fields")
         permission = command_permission(result["command"])
-        require(package.permissions, [permission])
+        required = radio_grants(permission)
+        require(package.permissions, required)
+        require(granted, required)
         state = await radio.request(directory, package.name, result["command"], bus)
         return f"Channel {state['channel']}, dwell {state['dwell_ms']} ms"
     require(package.permissions, [action + ".write"])
@@ -277,6 +280,13 @@ async def serve(package, directory, port, capacity):
                 require(package.permissions, ["networks.read", "export.write"])
                 inputs.update(
                     await asyncio.to_thread(geo_log.snapshot, directory, settings)
+                )
+            if package.name == "smart-sweep":
+                from .smart_sweep import density_snapshot
+
+                require(package.permissions, ["radio.tx", "radio.config"])
+                inputs["client_density"] = await asyncio.to_thread(
+                    density_snapshot, directory, settings
                 )
             if package.permissions & RADIO:
                 inputs.update(

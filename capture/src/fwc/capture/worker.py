@@ -144,7 +144,9 @@ def run(settings, radio, publisher, stopping=lambda: False, usage=None, control=
                     scanner = cycle(plan)
                     channel = next(scanner)
                 channel = control.overrides.get("radio.tx", (None, channel))[1]
-                dwell = changes.get("dwell_ms", dwell)
+                dwell = changes.get("dwell_by_channel", {}).get(
+                    str(channel), changes.get("dwell_ms", dwell)
+                )
             with ExitStack() as stack:
                 try:
                     sock = stack.enter_context(radio.listen(channel))
