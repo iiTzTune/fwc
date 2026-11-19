@@ -131,3 +131,25 @@ gh run download "$FIRST_RUN" --name image-digests --dir /tmp/fwc-first-digests
 gh run download "$SECOND_RUN" --name image-digests --dir /tmp/fwc-second-digests
 diff -u /tmp/fwc-first-digests/SHA256SUMS /tmp/fwc-second-digests/SHA256SUMS
 ```
+
+## Open — Receive-channel selection on the board radio
+
+Install the reference hop plugin on the board and configure it for channels 1
+and 6. Enable its `radio.tx` permission. With capture running, compare the
+kernel's current channel with the worker's most recent confirmed channel over
+several transitions. Record the board, adapter, interface and driver.
+
+```sh
+iw dev fwcmon0 info
+sqlite3 /var/lib/fwc/state.sqlite "SELECT data FROM events WHERE topic='radio/state' ORDER BY seq DESC LIMIT 6"
+curl -fsS http://127.0.0.1:8080/api/status
+```
+
+Revoke the grant in the device settings. Repeat the status query and confirm
+the capture service's start count is unchanged. Check the latest plugin status
+for the named permission and confirm the radio resumes the device channel plan.
+
+```sh
+sqlite3 /var/lib/fwc/state.sqlite "SELECT data FROM events WHERE topic='plugin.status' AND json_extract(data,'$.name')='fwc-plugin-hop' ORDER BY seq DESC LIMIT 1"
+iw dev fwcmon0 info
+```

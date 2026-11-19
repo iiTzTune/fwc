@@ -25,12 +25,26 @@ def get(port, path):
         return json.loads(response.read())
 
 
+def hop_transitions(state):
+    with closing(
+        sqlite3.connect((state / "state.sqlite").as_uri() + "?mode=ro", uri=True)
+    ) as db:
+        return [
+            channel
+            for (channel,) in db.execute(
+                """SELECT json_extract(data, '$.state.channel') FROM events
+                   WHERE topic='radio/result' AND json_extract(data, '$.plugin')='fwc-plugin-hop'
+                     AND json_extract(data, '$.ok')=1 ORDER BY seq"""
+            )
+        ]
+
+
 def exercise(tmp_path):
     subprocess.run(
         ["cargo", "build", "--locked", "--bin", "fwc-core"], cwd=ROOT, check=True
     )
     manifests = tmp_path / "installed"
-    for name in ("activity-widget", "file-export"):
+    for name in ("activity-widget", "file-export", "fwc-plugin-hop"):
         shutil.copytree(EXAMPLES / name, manifests / name)
     for name, version in [("ten-second-example", 1), ("later-api", 9)]:
         folder = manifests / name
@@ -44,12 +58,6 @@ def exercise(tmp_path):
         (folder / "main.py").write_text(
             "import time\ntime.sleep(10)\nraise RuntimeError('scheduled stop')\n"
         )
-    folder = manifests / "sample-scanner"
-    shutil.copytree(EXAMPLES / "activity-widget", folder)
-    spec = json.loads((folder / "manifest.json").read_text())
-    spec.update(name=folder.name, permissions=["radio.tx"], interval_seconds=1)
-    (folder / "manifest.json").write_text(json.dumps(spec))
-    (folder / "main.py").write_text("from fwc_sdk import set_channel\nset_channel(6)\n")
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
         port = sock.getsockname()[1]
@@ -57,7 +65,16 @@ def exercise(tmp_path):
     state.mkdir()
     grants = state / "plugin-config.json"
     grants.write_text(
-        json.dumps({"plugins": {"sample-scanner": {"permissions": ["radio.tx"]}}})
+        json.dumps(
+            {
+                "plugins": {
+                    "fwc-plugin-hop": {
+                        "permissions": ["radio.tx"],
+                        "settings": {"channels": [6, 11]},
+                    }
+                }
+            }
+        )
     )
     capture_config = tmp_path / "capture.json"
     capture_config.write_text('{"phy":"virtual","interface":"sample"}')
@@ -108,16 +125,14 @@ def exercise(tmp_path):
                     plugins = {
                         entry["name"]: entry for entry in get(port, "plugins")["items"]
                     }
-                    if not revoked and "Channel 6" in plugins.get(
-                        "sample-scanner", {}
-                    ).get("detail", ""):
+                    if not revoked and hop_transitions(state)[:3] == [6, 11, 6]:
                         replacement = grants.with_suffix(".tmp")
                         replacement.write_text(json.dumps({"plugins": {}}))
                         replacement.replace(grants)
                         revoked = True
                     if (
                         revoked
-                        and plugins.get("sample-scanner", {}).get("state")
+                        and plugins.get("fwc-plugin-hop", {}).get("state")
                         == "unavailable"
                         and plugins.get("ten-second-example", {}).get("state")
                         == "unavailable"
@@ -142,22 +157,15 @@ def exercise(tmp_path):
                     "SELECT seq,topic,data FROM events ORDER BY seq"
                 ).fetchall()
             records = [(topic, json.loads(payload)) for _, topic, payload in events]
-            assert any(
-                topic == "radio/state" and payload["channel"] == 6
-                for topic, payload in records
-            )
-            assert (
-                next(
-                    payload
-                    for topic, payload in reversed(records)
-                    if topic == "radio/state"
-                )["channel"]
-                == 1
-            )
+            tuned = [
+                data["channel"] for topic, data in records if topic == "radio/state"
+            ]
+            assert [ch for ch in tuned if ch != 1][:3] == [6, 11, 6]
+            assert tuned[-1] == 1
             denial = next(
                 payload
                 for topic, payload in reversed(records)
-                if topic == "plugin.status" and payload["name"] == "sample-scanner"
+                if topic == "plugin.status" and payload["name"] == "fwc-plugin-hop"
             )
             assert denial["error"] == {
                 "code": "permission_denied",
@@ -195,7 +203,7 @@ def exercise(tmp_path):
             )
             assert capture["starts"] == 1 and capture["pid"]
             print(
-                f"Channel 6 confirmed, radio.tx revoked, channel 1 restored; two ten-second plugin failures; {len(observations)} association events; capture starts=1."
+                f"Channels 6, 11, 6 confirmed, radio.tx revoked, channel 1 restored; two ten-second plugin failures; {len(observations)} association events; capture starts=1."
             )
         finally:
             core.terminate()
