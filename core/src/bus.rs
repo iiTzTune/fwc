@@ -94,6 +94,7 @@ impl Queue {
     }
 }
 struct Client {
+    service: Option<String>,
     topic: Option<String>,
     queue: Queue,
     wake: Rc<Notify>,
@@ -151,9 +152,40 @@ impl Bus {
         }
     }
     fn handle(&mut self, id: u64, r: Request) -> Result<Value> {
+        let role = self.clients[&id].service.as_deref();
+        let topic = match &r {
+            Request::Publish { topic, .. } | Request::Metric { topic, .. } => Some(topic.as_str()),
+            _ => None,
+        };
+        match topic {
+            Some("radio/command") => {
+                ensure!(role == Some("plugins"), "plugin host required");
+                ensure!(
+                    matches!(r, Request::Publish { .. }),
+                    "expected command event"
+                );
+                ensure!(
+                    self.clients.values().any(|c| !c.closed
+                        && c.service.as_deref() == Some("capture")
+                        && c.topic.as_deref() == topic),
+                    "capture worker unavailable"
+                );
+            }
+            Some("radio/state" | "radio/result") => {
+                ensure!(role == Some("capture"), "capture worker required");
+                ensure!(
+                    matches!(r, Request::Publish { .. }),
+                    "expected worker event"
+                );
+            }
+            _ => (),
+        }
         match r {
             Request::Driver { .. } => unreachable!("driver requests run asynchronously"),
             Request::Subscribe { topic } => {
+                if topic == "radio/command" {
+                    ensure!(role == Some("capture"), "capture worker required");
+                }
                 self.clients.get_mut(&id).unwrap().topic = Some(topic);
                 Ok(json!({"ok":true}))
             }
@@ -191,9 +223,23 @@ impl Bus {
         let id = b.next;
         b.next += 1;
         let wake = Rc::new(Notify::new());
+        let pid = stream
+            .peer_cred()
+            .ok()
+            .and_then(|cred| cred.pid())
+            .map(i64::from);
+        let service = b.services.as_array().and_then(|entries| {
+            entries.iter().find_map(|entry| {
+                let child = entry["pid"].as_i64()?;
+                (Some(child) == pid)
+                    .then(|| entry["name"].as_str().map(str::to_owned))
+                    .flatten()
+            })
+        });
         b.clients.insert(
             id,
             Client {
+                service,
                 topic: None,
                 queue: Queue::new(32),
                 closed: false,

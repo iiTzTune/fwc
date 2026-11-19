@@ -6,6 +6,7 @@ import json
 import os
 import re
 import signal
+import sqlite3
 import stat
 import sys
 import tempfile
@@ -14,15 +15,19 @@ from contextlib import closing, suppress
 from dataclasses import dataclass
 from pathlib import Path
 
+from fwc.capture.contract import (
+    LEGACY,
+    RADIO,
+    PermissionDenied,
+    command_permission,
+    plugin_config,
+    require,
+)
+
+from . import radio
 from .sandbox import invoke
 
-PERMISSIONS = {
-    "status.read",
-    "networks.read",
-    "widget.write",
-    "display.write",
-    "export.write",
-}
+PERMISSIONS = LEGACY | RADIO
 NAME = re.compile(r"[a-z][a-z0-9-]{0,39}")
 
 
@@ -137,8 +142,10 @@ async def bus(directory, message):
         await writer.wait_closed()
 
 
-async def report(directory, name, state, detail):
+async def report(directory, name, state, detail, error=None):
     record = {"name": name, "state": state, "detail": detail[:200]}
+    if error:
+        record["error"] = error
     print(json.dumps(record), file=sys.stderr, flush=True)
     message = {
         "op": "publish",
@@ -173,8 +180,16 @@ async def deliver(package, result, directory):
     if not isinstance(result, dict) or not isinstance(result.get("action"), str):
         raise TypeError("expected a plugin result object")
     action = result["action"]
-    if action + ".write" not in package.permissions:
-        raise ValueError("plugin lacks result permission")
+    granted, _ = plugin_config(directory, package.name)
+    require(granted, package.permissions)
+    if action == "radio":
+        if result.keys() != {"action", "command"}:
+            raise ValueError("invalid radio result fields")
+        permission = command_permission(result["command"])
+        require(package.permissions, [permission])
+        state = await radio.request(directory, package.name, result["command"], bus)
+        return f"Channel {state['channel']}, dwell {state['dwell_ms']} ms"
+    require(package.permissions, [action + ".write"])
     if action in ("display", "widget"):
         if (
             set(result) != {"action", "text"}
@@ -211,17 +226,36 @@ async def serve(package, directory, port, capacity):
     last = None
     previous_display = None
 
-    async def status(state, detail):
+    async def status(state, detail, error=None):
         nonlocal last
         if (state, detail) != last:
-            await report(directory, package.name, state, detail)
+            await report(directory, package.name, state, detail, error)
             last = (state, detail)
 
-    await status("running", "Ready")
     while True:
         try:
+            granted, settings = plugin_config(directory, package.name)
+            require(granted, package.permissions)
+        except PermissionDenied as exc:
+            await status("unavailable", str(exc), exc.payload)
+            await asyncio.sleep(1)
+            continue
+        except (TypeError, ValueError, OSError, RecursionError) as exc:
+            await status("unavailable", str(exc))
+            await asyncio.sleep(1)
+            continue
+        if last is None or last[0] == "unavailable":
+            await status("running", "Ready")
+        try:
             inputs = await asyncio.to_thread(snapshot, package, port)
-        except (OSError, ValueError, http.client.HTTPException):
+            inputs["settings"] = settings
+            if package.permissions & RADIO:
+                inputs.update(
+                    await asyncio.to_thread(
+                        radio.radio_snapshot, directory, package.name
+                    )
+                )
+        except (OSError, ValueError, http.client.HTTPException, sqlite3.Error):
             await status("waiting", "Companion API unavailable")
             await asyncio.sleep(2)
             continue
@@ -229,12 +263,18 @@ async def serve(package, directory, port, capacity):
             async with capacity:
                 result = await invoke(package, inputs)
             if previous_display is not None and result == previous_display:
+                granted, _ = plugin_config(directory, package.name)
+                require(granted, package.permissions)
                 detail = previous_display["text"]
             else:
                 detail = await deliver(package, result, directory)
                 previous_display = result if result["action"] == "display" else None
             await status("running", detail)
             failures = 0
+        except PermissionDenied as exc:
+            await status("unavailable", str(exc), exc.payload)
+            await asyncio.sleep(1)
+            continue
         except (TypeError, ValueError, OSError, RuntimeError) as exc:
             failures += 1
             state = "unavailable" if failures > package.max_restarts else "waiting"

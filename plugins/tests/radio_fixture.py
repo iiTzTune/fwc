@@ -7,6 +7,7 @@ import threading
 from contextlib import contextmanager
 from pathlib import Path
 
+from fwc.capture.control import Commands, Control
 from fwc.capture.worker import Publisher, Settings, run
 
 
@@ -40,9 +41,12 @@ if __name__ == "__main__":
     state = Path(sys.argv[1])
     publisher = Publisher(state / "bus.sock")
     settings = Settings(
-        "virtual", "sample", str(state / "pcaps"), channels=(1,), dwell_ms=1000
+        "phy0", "sample", str(state / "pcaps"), channels=(1,), dwell_ms=1000
     )
     try:
-        run(settings, Radio(), publisher)
+        with Commands(state / "bus.sock") as commands:
+            run(
+                settings, Radio(), publisher, control=Control(state, settings, commands)
+            )
     finally:
         publisher.close()

@@ -3,6 +3,7 @@ import fcntl
 import signal
 from pathlib import Path
 
+from .control import Commands, Control
 from .radio import LinuxRadio
 from .worker import Publisher, read_settings, run
 
@@ -24,8 +25,9 @@ def main():
     try:
         with (directory / "capture.lock").open("a") as lease:
             fcntl.flock(lease, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            with LinuxRadio(settings) as radio:
-                run(settings, radio, publisher)
+            with LinuxRadio(settings) as radio, Commands(args.bus) as commands:
+                control = Control(args.bus.parent, settings, commands)
+                run(settings, radio, publisher, control=control)
     finally:
         publisher.close()
 

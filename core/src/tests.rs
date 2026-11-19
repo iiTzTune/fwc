@@ -118,3 +118,28 @@ async fn orderly_shutdown_allows_cleanup_and_reaps_workers() -> anyhow::Result<(
     assert_eq!(supervisor.snapshot()[0]["pid"], serde_json::Value::Null);
     Ok(())
 }
+
+#[test]
+fn upgrades_existing_activity_store_without_losing_records() -> anyhow::Result<()> {
+    let dir = tempfile::tempdir()?;
+    let file = dir.path().join("state.sqlite");
+    let db = rusqlite::Connection::open(&file)?;
+    db.execute_batch(include_str!("../migrations/001.sql"))?;
+    db.execute(
+        "INSERT INTO events VALUES (1,'one','network.seen','{}')",
+        [],
+    )?;
+    drop(db);
+    drop(Store::open(dir.path())?);
+    let db = rusqlite::Connection::open(&file)?;
+    assert_eq!(
+        db.query_row("PRAGMA user_version", [], |row| row.get::<_, u32>(0))?,
+        2
+    );
+    assert_eq!(
+        db.query_row("SELECT topic FROM events", [], |row| row
+            .get::<_, String>(0))?,
+        "network.seen"
+    );
+    Ok(())
+}

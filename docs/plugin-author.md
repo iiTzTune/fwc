@@ -64,3 +64,10 @@ needs a configured display with 122 × 250 frame support.
 For permission names, input and result contracts, limits and retry behavior,
 see the [plugin host and SDK](../plugins/README.md) and
 [manifest settings](configuration.md).
+
+## Receive-only radio contract
+
+Frame transmission is not yet implemented. The manifest reserves `radio.raw`
+for this interface. The host denies it even if a device configuration lists
+it. The worker accepts receive-channel selection and capture settings only.
+Neither a manifest entry nor a grant enables frame transmission.
