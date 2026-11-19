@@ -90,6 +90,64 @@ The Waveshare V4 display and headless indicator accept an empty options object.
 
 The HTTP settings object includes all six editable fields. The API accepts at most 233 channel entries. Each SSID is at most 32 UTF-8 bytes.
 
+## Device plugin settings
+
+| Field | Value | Presence or default | Use |
+| --- | --- | --- | --- |
+| `plugins` | object | Required | Entries keyed by installed manifest name. |
+
+In `/var/lib/fwc/plugin-config.json`, each `plugins.NAME` entry has these fields. The file is limited to 65536 bytes. Use Settings → Plugin permissions to change individual grants while preserving other settings. [Permission defaults and denial behavior](plugin-author.md)
+
+## Per-plugin entry
+
+| Field | Value | Presence or default | Use |
+| --- | --- | --- | --- |
+| `permissions` | list of status.read, networks.read, widget.write, export.write, display.write, radio.tx, radio.config, radio.raw, network.out | Optional | Explicit grants replace the five legacy defaults. |
+| `settings` | object | `{}` | Values read by this plugin on its next run. |
+
+## fwc-plugin-hop settings
+
+| Field | Value | Presence or default | Use |
+| --- | --- | --- | --- |
+| `channels` | list of integer (1–233) | `[1, 6, 11]` | Receive channels in rotation order. Minimum items 1. Maximum items 233. |
+
+## pcap-sink settings
+
+| Field | Value | Presence or default | Use |
+| --- | --- | --- | --- |
+| `window_seconds` | integer (1–604800) | `3600` | Maximum age of a retained file from its last write. |
+
+## geo-log settings
+
+| Field | Value | Presence or default | Use |
+| --- | --- | --- | --- |
+| `device` | string | Optional | USB receiver path under /dev/ttyACM*, /dev/ttyUSB* or /dev/serial/by-id/. Omit to pause new fixes. |
+| `baud` | 4800, 9600, 38400, 115200 | `9600` | Receiver serial line speed. |
+| `window_seconds` | integer (1–60) | `10` | Maximum fix age and allowed time difference between a fix and a network record. |
+
+## export-web settings
+
+| Field | Value | Presence or default | Use |
+| --- | --- | --- | --- |
+| `endpoint` | string | Required | Exact HTTPS destination for aggregate observation summaries. Pattern `^https://`. |
+
+## stats-faces settings
+
+| Field | Value | Presence or default | Use |
+| --- | --- | --- | --- |
+| `epoch_seconds` | integer (30–3600) | `300` | Duration of each score epoch. |
+
+## smart-sweep settings
+
+| Field | Value | Presence or default | Use |
+| --- | --- | --- | --- |
+| `window_seconds` | integer (1–300) | `60` | Age limit for observed client activity. |
+| `min_dwell_ms` | integer (10–60000) | `250` | Receive dwell with zero observed clients. |
+| `max_dwell_ms` | integer (10–60000) | `1750` | Upper dwell bound, at least min_dwell_ms. |
+| `step_ms` | integer (1–60000) | `75` | Additional dwell per observed client. |
+
+The keys above go under `plugins.NAME.settings`. The peers-mesh, activity-widget, file-export and status-display packages have no device-specific setting keys. The manifest's `interval_seconds` controls the time between completed invocations.
+
 ## Plugin manifest
 
 | Field | Value | Presence or default | Use |

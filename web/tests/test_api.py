@@ -111,3 +111,76 @@ def test_local_requests_only(device):
     ]:
         assert request(port, "PUT", "/api/config", values, headers)[0] == 403
     assert path.read_bytes() == original
+
+
+def test_live_plugin_grants(device):
+    import shutil
+    from concurrent.futures import ThreadPoolExecutor
+    from pathlib import Path
+
+    from fwc.capture.contract import plugin_config
+
+    port, state, _ = device
+    name = "smart-sweep"
+    folder = state / "plugins" / name
+    shutil.copytree(
+        Path(__file__).resolve().parents[2] / "plugins/examples" / name, folder
+    )
+    file = state / "plugin-config.json"
+    original = {
+        "plugins": {name: {"settings": {"step_ms": 80}}, "other": {"permissions": []}}
+    }
+    file.write_text(json.dumps(original))
+    route = "/api/plugin-permissions"
+    assert request(port, "GET", route)[1]["items"] == [
+        {"name": name, "requested": ["radio.config", "radio.tx"], "granted": []}
+    ]
+
+    def toggle(permission, enabled=True):
+        return request(
+            port,
+            "PUT",
+            route,
+            {"name": name, "permission": permission, "enabled": enabled},
+        )
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        assert all(
+            status == 200
+            for status, _ in pool.map(toggle, ["radio.tx", "radio.config"])
+        )
+    assert plugin_config(state, name)[0] == {"radio.tx", "radio.config"}
+    assert toggle("radio.tx", False)[0] == 200
+    assert plugin_config(state, name) == ({"radio.config"}, {"step_ms": 80})
+    assert json.loads(file.read_text())["plugins"]["other"] == {"permissions": []}
+    assert toggle("export.write")[0] == 400
+    assert toggle("radio.tx", 1)[0] == 400
+    assert (
+        request(
+            port,
+            "PUT",
+            route,
+            {"name": "../bad", "permission": "radio.tx", "enabled": True},
+        )[0]
+        == 400
+    )
+    spec = json.loads((folder / "manifest.json").read_text())
+    spec["permissions"].append("radio.raw")
+    (folder / "manifest.json").write_text(json.dumps(spec))
+    assert toggle("radio.raw")[0] == 400
+    denied = {"code": "permission_denied", "permission": "radio.tx"}
+    publish(
+        state,
+        "plugin.status",
+        {
+            "name": name,
+            "state": "unavailable",
+            "detail": "grant required",
+            "error": denied,
+        },
+        "denied",
+    )
+    assert request(port, "GET", "/api/plugins")[1]["items"][0]["error"] == denied
+    file.write_text('{"wrong":{}}')
+    assert toggle("radio.tx")[0] == 503
+    assert file.read_text() == '{"wrong":{}}'

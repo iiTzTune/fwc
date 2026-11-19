@@ -165,13 +165,7 @@ def run(settings, radio, publisher, stopping=lambda: False, usage=None, control=
                             Path(settings.directory), max_bytes, count, *ring_args
                         )
                     control.announce(publisher, channel, dwell, applied)
-                read_peers = (
-                    control is not None
-                    and (
-                        control.directory / "plugins/peers-mesh/manifest.json"
-                    ).is_file()
-                    and {"status.read", "export.write"} <= control.grants("peers-mesh")
-                )
+                read_peers = control is not None and control.reads_peers()
                 peer_samples = set()
                 while not stopping() and (remaining := deadline - time.monotonic()) > 0:
                     sock.settimeout(remaining)

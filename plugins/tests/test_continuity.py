@@ -17,9 +17,17 @@ ROOT = Path(__file__).resolve().parents[2]
 EXAMPLES = ROOT / "plugins/examples"
 
 
-def get(port, path):
+def api(port, path, change=None):
     with closing(http.client.HTTPConnection("127.0.0.1", port, timeout=2)) as client:
-        client.request("GET", "/api/" + path)
+        if change is None:
+            client.request("GET", "/api/" + path)
+        else:
+            client.request(
+                "PUT",
+                "/api/" + path,
+                json.dumps(change),
+                {"Content-Type": "application/json"},
+            )
         response = client.getresponse()
         assert response.status == 200
         return json.loads(response.read())
@@ -123,12 +131,18 @@ def exercise(tmp_path):
             while time.monotonic() < deadline:
                 try:
                     plugins = {
-                        entry["name"]: entry for entry in get(port, "plugins")["items"]
+                        entry["name"]: entry for entry in api(port, "plugins")["items"]
                     }
                     if not revoked and hop_transitions(state)[:3] == [6, 11, 6]:
-                        replacement = grants.with_suffix(".tmp")
-                        replacement.write_text(json.dumps({"plugins": {}}))
-                        replacement.replace(grants)
+                        api(
+                            port,
+                            "plugin-permissions",
+                            {
+                                "name": "fwc-plugin-hop",
+                                "permission": "radio.tx",
+                                "enabled": False,
+                            },
+                        )
                         revoked = True
                     if (
                         revoked
@@ -198,7 +212,7 @@ def exercise(tmp_path):
             )
             capture = next(
                 service
-                for service in get(port, "status")["services"]
+                for service in api(port, "status")["services"]
                 if service["name"] == "capture"
             )
             assert capture["starts"] == 1 and capture["pid"]

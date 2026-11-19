@@ -17,7 +17,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
-from fwc.capture.contract import plugin_config, require
+from fwc.capture.contract import PERMISSIONS, manifest_directory, plugin_config, require
 from fwc.capture.worker import Settings
 from fwc.plugins.host import Manifest, bounded
 
@@ -38,6 +38,27 @@ FILES = {
 
 class Invalid(ValueError):
     """A request parameter does not match the API contract."""
+
+
+def replace_json(path, values, mode=0o600, limit=None):
+    encoded = (json.dumps(values, indent=2, allow_nan=False) + "\n").encode()
+    if limit and len(encoded) > limit:
+        raise Invalid("Device plugin settings exceed the size limit")
+    with tempfile.NamedTemporaryFile(dir=path.parent, delete=False) as file:
+        tmp = Path(file.name)
+        try:
+            os.fchmod(file.fileno(), mode)
+            file.write(encoded)
+            file.flush()
+            os.fsync(file.fileno())
+            os.replace(tmp, path)
+            directory = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                os.fsync(directory)
+            finally:
+                os.close(directory)
+        finally:
+            tmp.unlink(missing_ok=True)
 
 
 class Device:
@@ -81,31 +102,14 @@ class Device:
                 except (ValueError, TypeError) as err:
                     raise Invalid(str(err)) from err
                 # The capture worker reads this file at startup. Preserve board settings.
-                with tempfile.NamedTemporaryFile(
-                    dir=self.config.parent, mode="w", delete=False
-                ) as file:
-                    tmp = Path(file.name)
-                    try:
-                        os.fchmod(file.fileno(), self.config.stat().st_mode & 0o777)
-                        json.dump(original | changes, file, indent=2)
-                        file.write("\n")
-                        file.flush()
-                        os.fsync(file.fileno())
-                        os.replace(tmp, self.config)
-                        directory = os.open(
-                            self.config.parent, os.O_RDONLY | os.O_DIRECTORY
-                        )
-                        try:
-                            os.fsync(directory)
-                        finally:
-                            os.close(directory)
-                    finally:
-                        tmp.unlink(missing_ok=True)
+                replace_json(
+                    self.config, original | changes, self.config.stat().st_mode & 0o777
+                )
             values = asdict(parsed)
             return {key: values[key] for key in EDITABLE}
 
     def plugin_available(self, name, required):
-        folder = self.state / "plugins" / name
+        folder = manifest_directory(self.state) / name
         if folder.is_symlink() or not folder.is_dir():
             return False
         try:
@@ -116,6 +120,58 @@ class Device:
             return package.name == name
         except (OSError, TypeError, ValueError, RecursionError):
             return False
+
+    def plugin_permissions(self, change=None):
+        with self.config_lock:
+            root = manifest_directory(self.state)
+            folders = sorted(
+                p for p in root.glob("*") if not p.is_symlink() and p.is_dir()
+            )
+            if len(folders) > 32:
+                raise ValueError("Too many installed plugins")
+            items = {}
+            for folder in folders:
+                try:
+                    package = Manifest.load(folder)
+                except (OSError, ValueError, KeyError, TypeError, RecursionError):
+                    continue
+                if package.name != folder.name:
+                    continue
+                granted, _ = plugin_config(self.state, package.name)
+                items[package.name] = {
+                    "name": package.name,
+                    "requested": sorted(package.permissions),
+                    "granted": sorted(package.permissions & granted),
+                }
+
+            if change is None:
+                return {"items": list(items.values())}
+            if set(change) != {"name", "permission", "enabled"}:
+                raise Invalid("Supply name, permission and enabled")
+            name, permission, enabled = (
+                change[k] for k in ("name", "permission", "enabled")
+            )
+            if not isinstance(name, str) or name not in items:
+                raise Invalid("Choose an installed plugin")
+            item = items[name]
+            if permission not in item["requested"] or type(enabled) is not bool:
+                raise Invalid("Choose a requested permission and a boolean setting")
+            if permission == "radio.raw":
+                raise Invalid("Frame transmission is reserved")
+            path = self.state / "plugin-config.json"
+            try:
+                config = json.loads(bounded(path, 65536))
+            except FileNotFoundError:
+                config = {"plugins": {}}
+            grants = set(item["granted"])
+            if enabled:
+                grants.add(permission)
+            else:
+                grants.discard(permission)
+            item["granted"] = sorted(grants)
+            config["plugins"].setdefault(name, {})["permissions"] = item["granted"]
+            replace_json(path, config, limit=65536)
+            return item
 
     def networks(self, raw_query):
         try:
@@ -172,7 +228,20 @@ class Device:
             items = []
             for row in db.execute(sql):
                 data = json.loads(row["data"])
-                items.append({key: data[key] for key in fields} | {"seq": row["seq"]})
+                item = {key: data[key] for key in fields} | {"seq": row["seq"]}
+                error = data.get("error")
+                if (
+                    kind == "plugins"
+                    and isinstance(error, dict)
+                    and error.get("code") == "permission_denied"
+                    and isinstance(error.get("permission"), str)
+                    and error["permission"] in PERMISSIONS
+                ):
+                    item["error"] = {
+                        "code": error["code"],
+                        "permission": error["permission"],
+                    }
+                items.append(item)
         return {"items": items}
 
 
@@ -291,7 +360,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         route = urlsplit(self.path)
         device = self.server.device
-        if method == "PUT" and route.path == "/api/config":
+        if method == "PUT" and route.path in ("/api/config", "/api/plugin-permissions"):
             if self.headers.get_content_type() != "application/json":
                 raise Invalid("Content-Type must be application/json")
             size = number(self.headers.get("Content-Length", ""), 1, 16384)
@@ -301,7 +370,10 @@ class Handler(BaseHTTPRequestHandler):
                 raise Invalid("Expected UTF-8 JSON") from e
             if not isinstance(payload, dict):
                 raise Invalid("Expected a settings object")
-            self.reply(device.settings(payload))
+            if route.path == "/api/plugin-permissions":
+                self.reply(device.plugin_permissions(payload))
+            else:
+                self.reply(device.settings(payload))
         elif method == "PUT":
             self.reply({"error": "Unknown settings endpoint"}, 404)
         elif route.path in FILES:
@@ -357,6 +429,8 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(device.status())
         elif route.path in ("/api/plugins", "/api/peers"):
             self.reply(device.recent(route.path.split("/")[-1]))
+        elif route.path == "/api/plugin-permissions":
+            self.reply(device.plugin_permissions())
         elif route.path == "/api/config":
             self.reply(device.settings())
         elif route.path == "/api/events":
@@ -371,7 +445,7 @@ class Handler(BaseHTTPRequestHandler):
             self.reply({"error": str(err)}, 400)
         except (BrokenPipeError, ConnectionResetError):
             return
-        except (OSError, sqlite3.Error, ValueError) as err:
+        except (OSError, sqlite3.Error, ValueError, TypeError, RecursionError) as err:
             print(f"Companion request unavailable: {err}", file=sys.stderr)
             self.reply({"error": "Device data unavailable"}, 503)
 

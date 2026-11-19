@@ -141,7 +141,7 @@ several transitions. Record the board, adapter, interface and driver.
 
 ```sh
 iw dev fwcmon0 info
-sqlite3 /var/lib/fwc/state.sqlite "SELECT data FROM events WHERE topic='radio/state' ORDER BY seq DESC LIMIT 6"
+python3 -m sqlite3 /var/lib/fwc/state.sqlite "SELECT data FROM events WHERE topic='radio/state' ORDER BY seq DESC LIMIT 6"
 curl -fsS http://127.0.0.1:8080/api/status
 ```
 
@@ -150,7 +150,7 @@ the capture service's start count is unchanged. Check the latest plugin status
 for the named permission and confirm the radio resumes the device channel plan.
 
 ```sh
-sqlite3 /var/lib/fwc/state.sqlite "SELECT data FROM events WHERE topic='plugin.status' AND json_extract(data,'$.name')='fwc-plugin-hop' ORDER BY seq DESC LIMIT 1"
+python3 -m sqlite3 /var/lib/fwc/state.sqlite "SELECT data FROM events WHERE topic='plugin.status' AND json_extract(data,'$.name')='fwc-plugin-hop' ORDER BY seq DESC LIMIT 1"
 iw dev fwcmon0 info
 ```
 
@@ -177,4 +177,31 @@ epoch and score on the physical panel with the latest plugin detail.
 
 ```sh
 curl -fsS http://127.0.0.1:8080/api/plugins
+```
+
+## Open — Nearby peer element on the board radio
+
+Install peers-mesh with its declared grants. At a location where an owner-run
+access point already advertises one of the [FWC fixture elements](peer-wire.md),
+select its receive channel. Compare the captured element and the local
+decoded identity and timestamp with the fixture.
+
+```sh
+iw dev fwcmon0 info
+python3 -m sqlite3 /var/lib/fwc/state.sqlite "SELECT json_extract(data,'$.element') FROM events WHERE topic='peer.element' ORDER BY seq DESC LIMIT 5"
+cat /var/lib/fwc/exports/peers-mesh.json
+```
+
+## Open — Adaptive dwell on the board adapter
+
+Install smart-sweep, grant both radio permissions it declares and configure
+a channel plan spanning a quiet channel and one with observed associations.
+Compare the per-channel dwell in the most recent worker states with the
+configured minimum, step and maximum. Revoke `radio.tx` while leaving
+`radio.config` enabled. Confirm the device dwell resumes on the next
+boundary, the capture start count stays fixed and `tx_enabled` stays false.
+
+```sh
+python3 -m sqlite3 /var/lib/fwc/state.sqlite "SELECT data FROM events WHERE topic='radio/state' ORDER BY seq DESC LIMIT 12"
+curl -fsS http://127.0.0.1:8080/api/status
 ```

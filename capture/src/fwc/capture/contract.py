@@ -17,6 +17,22 @@ class PermissionDenied(ValueError):
         self.payload = {"code": "permission_denied", "permission": permission}
 
 
+def manifest_directory(directory):
+    """Resolve the installed directory reported by the current device host."""
+    pointer = Path(directory) / "plugin-directory"
+    try:
+        with pointer.open("rb") as stream:
+            record = stream.read(4097)
+    except FileNotFoundError:
+        return Path(directory) / "plugins"
+    if len(record) > 4096 or not record.endswith(b"\n") or record.count(b"\n") != 1:
+        raise ValueError("invalid plugin directory record")
+    path = Path(record[:-1].decode())
+    if not path.is_absolute() or "\0" in str(path):
+        raise ValueError("expected an absolute plugin directory")
+    return path
+
+
 def plugin_config(directory, name):
     path = Path(directory) / "plugin-config.json"
     try:

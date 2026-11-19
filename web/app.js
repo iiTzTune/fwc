@@ -144,3 +144,45 @@ if (route === "settings") {
   };
   load().catch(report);
 }
+if (route === "settings") {
+  async function loadPermissions() {
+    const {items} = await api("plugin-permissions");
+    const panel = byId("plugin-permissions");
+    for (const plugin of items) {
+      const group = document.createElement("fieldset");
+      const legend = document.createElement("legend");
+      legend.textContent = plugin.name;
+      group.append(legend);
+      for (const permission of plugin.requested) {
+        const label = document.createElement("label");
+        const box = document.createElement("input");
+        box.type = "checkbox";
+        box.dataset.permission = permission;
+        box.checked = plugin.granted.includes(permission);
+        box.disabled = permission === "radio.raw";
+        box.onchange = async () => {
+          const enabled = box.checked;
+          box.disabled = true;
+          try {
+            const saved = await api("plugin-permissions", {
+              method: "PUT", headers: {"Content-Type": "application/json"},
+              body: JSON.stringify({name: plugin.name, permission, enabled})
+            });
+            box.checked = saved.granted.includes(permission);
+            byId("notice").textContent = plugin.name + " permissions saved.";
+          } catch (error) {
+            box.checked = !enabled;
+            report(error);
+          } finally {
+            box.disabled = false;
+          }
+        };
+        label.append(box, permission === "radio.raw" ? "radio.raw (reserved)" : permission);
+        group.append(label);
+      }
+      panel.append(group);
+    }
+    panel.hidden = items.length === 0;
+  }
+  loadPermissions().catch(report);
+}

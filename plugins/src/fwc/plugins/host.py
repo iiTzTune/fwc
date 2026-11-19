@@ -343,6 +343,16 @@ async def run(manifests, directory, port):
             )
             if len(folders) > 32:
                 raise ValueError("plugin directory exceeds 32 installed packages")
+            record = str(manifests.resolve())
+            if "\n" in record or len(record.encode()) >= 4096:
+                raise ValueError("invalid plugin directory path")
+            with tempfile.NamedTemporaryFile(dir=directory, delete=False) as stream:
+                temporary = Path(stream.name)
+            try:
+                temporary.write_text(record + "\n")
+                temporary.replace(directory / "plugin-directory")
+            finally:
+                temporary.unlink(missing_ok=True)
             break
         except (OSError, ValueError) as exc:
             message = str(exc)

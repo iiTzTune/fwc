@@ -11,6 +11,7 @@ from dataclasses import asdict
 from .contract import (
     PermissionDenied,
     command_permission,
+    manifest_directory,
     plugin_config,
     radio_grants,
     require,
@@ -77,6 +78,15 @@ class Control:
             return plugin_config(self.directory, plugin)[0]
         except (TypeError, ValueError, OSError, RecursionError):
             return set()
+
+    def reads_peers(self):
+        try:
+            spec = manifest_directory(self.directory) / "peers-mesh/manifest.json"
+            return spec.is_file() and {"status.read", "export.write"} <= self.grants(
+                "peers-mesh"
+            )
+        except (ValueError, OSError):
+            return False
 
     def prepare(self, publisher):
         for permission, (plugin, _) in list(self.overrides.items()):

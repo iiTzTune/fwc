@@ -10,3 +10,7 @@ button{font:inherit;color:white;background:var(--forest);border:1px solid var(--
 @media(max-width:620px){.columns,fieldset{grid-template-columns:1fr}.metrics,.columns{gap:6px}.metrics article{padding:9px}.metrics span{font-size:.73rem}.title{margin-top:22px}.form-end{align-items:flex-start;flex-direction:column}nav a{padding:4px 9px}}
 
 #positions { width: 100%; height: auto; background: #f5f6ef; }
+#plugin-permissions { margin-top: 1rem; }
+#plugin-permissions fieldset { margin: 1rem 0; }
+#plugin-permissions label { display: flex; align-items: center; gap: .5rem; }
+#plugin-permissions input { margin: 0; width: auto; }

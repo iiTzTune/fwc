@@ -593,6 +593,269 @@
         "files"
       ],
       "additionalProperties": false
+    },
+    "plugin-entry": {
+      "type": "object",
+      "properties": {
+        "permissions": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "status.read",
+              "networks.read",
+              "widget.write",
+              "export.write",
+              "display.write",
+              "radio.tx",
+              "radio.config",
+              "radio.raw",
+              "network.out"
+            ]
+          },
+          "description": "Explicit grants replace the five legacy defaults."
+        },
+        "settings": {
+          "type": "object",
+          "description": "Values read by this plugin on its next run.",
+          "default": {}
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "plugin-config": {
+      "type": "object",
+      "properties": {
+        "plugins": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/plugin-entry"
+          },
+          "description": "Entries keyed by installed manifest name.",
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9-]{0,39}$"
+          },
+          "properties": {
+            "fwc-plugin-hop": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/plugin-entry"
+                },
+                {
+                  "properties": {
+                    "settings": {
+                      "$ref": "#/$defs/fwc-plugin-hop"
+                    }
+                  }
+                }
+              ]
+            },
+            "geo-log": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/plugin-entry"
+                },
+                {
+                  "properties": {
+                    "settings": {
+                      "$ref": "#/$defs/geo-log"
+                    }
+                  }
+                }
+              ]
+            },
+            "pcap-sink": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/plugin-entry"
+                },
+                {
+                  "properties": {
+                    "settings": {
+                      "$ref": "#/$defs/pcap-sink"
+                    }
+                  }
+                }
+              ]
+            },
+            "export-web": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/plugin-entry"
+                },
+                {
+                  "properties": {
+                    "settings": {
+                      "$ref": "#/$defs/export-web"
+                    }
+                  }
+                }
+              ]
+            },
+            "smart-sweep": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/plugin-entry"
+                },
+                {
+                  "properties": {
+                    "settings": {
+                      "$ref": "#/$defs/smart-sweep"
+                    }
+                  }
+                }
+              ]
+            },
+            "stats-faces": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/plugin-entry"
+                },
+                {
+                  "properties": {
+                    "settings": {
+                      "$ref": "#/$defs/stats-faces"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "required": [
+        "plugins"
+      ],
+      "additionalProperties": false
+    },
+    "fwc-plugin-hop": {
+      "type": "object",
+      "properties": {
+        "channels": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 233
+          },
+          "minItems": 1,
+          "maxItems": 233,
+          "uniqueItems": true,
+          "default": [
+            1,
+            6,
+            11
+          ],
+          "description": "Receive channels in rotation order."
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "pcap-sink": {
+      "type": "object",
+      "properties": {
+        "window_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 604800,
+          "default": 3600,
+          "description": "Maximum age of a retained file from its last write."
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "geo-log": {
+      "type": "object",
+      "properties": {
+        "device": {
+          "type": "string",
+          "description": "USB receiver path under /dev/ttyACM*, /dev/ttyUSB* or /dev/serial/by-id/. Omit to pause new fixes."
+        },
+        "baud": {
+          "enum": [
+            4800,
+            9600,
+            38400,
+            115200
+          ],
+          "default": 9600,
+          "description": "Receiver serial line speed."
+        },
+        "window_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60,
+          "default": 10,
+          "description": "Maximum fix age and allowed time difference between a fix and a network record."
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "export-web": {
+      "type": "object",
+      "properties": {
+        "endpoint": {
+          "type": "string",
+          "pattern": "^https://",
+          "description": "Exact HTTPS destination for aggregate observation summaries."
+        }
+      },
+      "required": [
+        "endpoint"
+      ],
+      "additionalProperties": false
+    },
+    "stats-faces": {
+      "type": "object",
+      "properties": {
+        "epoch_seconds": {
+          "type": "integer",
+          "minimum": 30,
+          "maximum": 3600,
+          "default": 300,
+          "description": "Duration of each score epoch."
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "smart-sweep": {
+      "type": "object",
+      "properties": {
+        "window_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 300,
+          "default": 60,
+          "description": "Age limit for observed client activity."
+        },
+        "min_dwell_ms": {
+          "type": "integer",
+          "minimum": 10,
+          "maximum": 60000,
+          "default": 250,
+          "description": "Receive dwell with zero observed clients."
+        },
+        "max_dwell_ms": {
+          "type": "integer",
+          "minimum": 10,
+          "maximum": 60000,
+          "default": 1750,
+          "description": "Upper dwell bound, at least min_dwell_ms."
+        },
+        "step_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60000,
+          "default": 75,
+          "description": "Additional dwell per observed client."
+        }
+      },
+      "required": [],
+      "additionalProperties": false
     }
   }
 }
