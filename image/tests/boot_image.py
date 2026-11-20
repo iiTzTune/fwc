@@ -13,6 +13,7 @@ import time
 import uuid
 from pathlib import Path
 
+import pi_access
 from qemu_ab import locate
 
 
@@ -33,6 +34,8 @@ def check_pi_partitions(disk):
             entry = stream.read(size)
             assert str(uuid.UUID(bytes_le=entry[16:32])) == spec["guid"]
             assert entry[56:128].decode("utf-16-le").rstrip("\0") == spec["label"]
+            if index == 3:
+                data_start, data_end = struct.unpack_from("<QQ", entry, 32)
             if index == 0:
                 start, end = struct.unpack_from("<QQ", entry, 32)
                 assert mirror == (start, end - start + 1)
@@ -40,6 +43,7 @@ def check_pi_partitions(disk):
         "Pi FAT32 boot mirror matches GPT. Both root slots and DATA retain their partition IDs.",
         flush=True,
     )
+    return data_start, data_end - data_start + 1
 
 
 def firmware(kind, pi=False):
@@ -76,6 +80,7 @@ def boot(disk, variables, log, pi=False):
     architecture = "aarch64" if pi else "x86_64"
     native = platform.machine() == architecture
     accel = "kvm" if native and os.access("/dev/kvm", os.R_OK | os.W_OK) else "tcg"
+    forwards = pi_access.ports() if pi else None
     command = [
         f"qemu-system-{architecture}",
         "-machine",
@@ -101,7 +106,12 @@ def boot(disk, variables, log, pi=False):
         "-drive",
         f"if=virtio,format=raw,file={disk}",
         "-nic",
-        "none",
+        (
+            f"user,model=virtio-net-pci,hostfwd=tcp:127.0.0.1:{forwards[0]}-:8080,"
+            f"hostfwd=tcp:127.0.0.1:{forwards[1]}-:22"
+        )
+        if pi
+        else "none",
         "-display",
         "none",
         "-monitor",
@@ -138,6 +148,7 @@ def boot(disk, variables, log, pi=False):
                             "Guest did not confirm its driver imports"
                         )
                         print(driver_check, flush=True)
+                        pi_access.check(log.parent, forwards, match[1])
                     print(match.group(0), flush=True)
                     return match[1]
                 time.sleep(0.25)
@@ -152,8 +163,6 @@ def main():
     parser.add_argument("--target", choices=("x86_64", "pi-zero-2w"), default="x86_64")
     args = parser.parse_args()
     pi = args.target == "pi-zero-2w"
-    if pi:
-        check_pi_partitions(args.image)
     cache = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "fwc-image"
     cache.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=cache) as tmp:
@@ -162,6 +171,8 @@ def main():
         subprocess.run(
             ["cp", "--reflink=auto", "--sparse=always", args.image, disk], check=True
         )
+        if pi:
+            pi_access.provision(disk, work, *check_pi_partitions(disk))
         variables = work / "vars.fd"
         shutil.copy(firmware("VARS", pi), variables)
         first = boot(disk, variables, work / "boot1.log", pi)

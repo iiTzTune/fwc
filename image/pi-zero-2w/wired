@@ -1,0 +1,6 @@
+#!/bin/sh
+set -eu
+# USB enumeration can finish after the core starts.
+while [ ! -e /sys/class/net/eth0/device ] || [ -d /sys/class/net/eth0/wireless ]; do sleep 1; done
+ip link set dev eth0 up
+exec udhcpc -f -i eth0 -p /run/fwc-wired.pid

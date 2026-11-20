@@ -80,7 +80,13 @@ the USB data port and supply it externally. Insert the microSD card. On
 the x86 board, boot the drive through the removable-media UEFI menu.
 Use 115200 baud on the serial console. The boot selection and Linux slot
 identifier appear there. The core supervises the web service and plugin host.
-The companion UI listens on the device at http://127.0.0.1:8080.
+On the Pi, the core waits for the hub's Ethernet interface (`eth0`) and
+runs DHCP, including lease renewal. Find its address in the router's lease
+table and open `http://<Pi-address>:8080/` on your trusted LAN. Local access
+at `http://127.0.0.1:8080/` also works. U-Boot selects a slot automatically;
+its device-tree `/config/bootdelay` value of -2 skips the interruptible
+countdown. For serial U-Boot maintenance, set that property to 2 on a copy
+of the boot DTB and select the copy in `config.txt`.
 A startup message reports the persistent device ID and service names.
 
 ## Set up the board
@@ -96,6 +102,26 @@ sudo mount -o rw /dev/disk/by-partlabel/FWC-DATA /mnt
 sudo sh -c 'umask 077; HASH=$(openssl passwd -6) && printf "root:%s:20000:0:99999:7:::\n" "$HASH" > /mnt/shadow'
 sudo umount /mnt
 ```
+
+### Provision wired SSH on a freshly flashed Pi card
+
+With the Pi powered off, mount its FWC-DATA partition on the workstation
+and install the owner's **public** key. Use the public key that corresponds
+to the private key on your workstation.
+
+```sh
+sudo mount /dev/disk/by-partlabel/FWC-DATA /mnt
+sudo install -d -m 700 /mnt/ssh
+sudo install -m 600 "$HOME/.ssh/id_ed25519.pub" /mnt/ssh/authorized_keys
+sudo umount /mnt
+```
+
+Connect the Ethernet hub before powering on, or plug it in after boot.
+Dropbear waits for the key and a wired IPv4 address, then accepts key-only
+root logins on Ethernet. Connect with `ssh root@<Pi-address>`. The Pi creates
+its own Ed25519 host key in `FWC-DATA/ssh/hostkey` and reuses it after reboot
+and slot changes. Reflashing the full disk replaces FWC-DATA, so provision the
+new card again. The password database above is optional for SSH.
 
 The Pi image selects a USB monitor-capable interface automatically. For a
 specific adapter, set `observation_interface` in `capture.json` to the

@@ -22,6 +22,8 @@
     {"source":"image/runtime/report.py","destination":"/usr/lib/fwc/report.py"},
     {"source":"image/tests/guest_drivers.py","destination":"/usr/lib/fwc/guest_drivers.py"},
     {"source":"image/pi-zero-2w/board-setup","destination":"/usr/lib/fwc/board-setup"},
+    {"source":"image/pi-zero-2w/wired","destination":"/usr/lib/fwc/wired"},
+    {"source":"image/pi-zero-2w/ssh","destination":"/usr/lib/fwc/ssh"},
     {"source":"image/pi-zero-2w/inittab","destination":"/etc/inittab"}
   ]
 }
