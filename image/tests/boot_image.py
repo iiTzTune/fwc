@@ -89,6 +89,8 @@ def boot(disk, variables, log, pi=False):
             [
                 "-cpu",
                 "host" if accel == "kvm" else "cortex-a53",
+                "-global",
+                "virtio-net-pci.romfile=",
                 "-smbios",
                 "type=1,product=FWC ARM image check",
             ]
