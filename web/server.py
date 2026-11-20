@@ -351,9 +351,10 @@ class Handler(BaseHTTPRequestHandler):
     def dispatch(self, method):
         host = self.headers.get("Host", "")
         port = self.server.server_port
-        hosts = {f"localhost:{port}", f"127.0.0.1:{port}"}
+        local_ip = self.connection.getsockname()[0]
+        hosts = {f"localhost:{port}", f"127.0.0.1:{port}", f"{local_ip}:{port}"}
         if port == 80:
-            hosts.update(("localhost", "127.0.0.1"))
+            hosts.update(("localhost", "127.0.0.1", local_ip))
         if (
             host not in hosts
             or self.headers.get("Origin", f"http://{host}") != f"http://{host}"
@@ -470,8 +471,9 @@ def main():
     parser.add_argument("state", type=Path)
     parser.add_argument("config", type=Path)
     parser.add_argument("--port", type=int, default=8080)
+    parser.add_argument("--listen", default="127.0.0.1")
     args = parser.parse_args()
-    with HTTP(("127.0.0.1", args.port), Device(args.state, args.config)) as server:
+    with HTTP((args.listen, args.port), Device(args.state, args.config)) as server:
         server.serve_forever()
 
 

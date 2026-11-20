@@ -1,0 +1,17 @@
+#!/bin/sh
+set -eu
+dir=/var/lib/fwc/ssh
+umask 077
+mkdir -p "$dir"
+while [ ! -s "$dir/authorized_keys" ] || ! ip -4 addr show dev eth0 2>/dev/null | grep -q 'inet '; do
+    sleep 2
+done
+if [ ! -s "$dir/hostkey" ]; then
+    tmp=$(mktemp -d "$dir/.hostkey.XXXXXX")
+    trap 'rm -rf "$tmp"' EXIT
+    dropbearkey -t ed25519 -f "$tmp/key" >/dev/null
+    mv "$tmp/key" "$dir/hostkey"
+    rm -rf "$tmp"
+    trap - EXIT
+fi
+exec dropbear -F -E -s -G root -D "$dir" -r "$dir/hostkey" -l eth0 -p 22 -P /run/fwc-sshd.pid

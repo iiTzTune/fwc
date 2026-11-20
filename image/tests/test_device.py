@@ -41,6 +41,8 @@ def test_pi_board_configuration_and_virtual_profile(tmp_path):
         "plugins",
         "capture",
         "input",
+        "wired",
+        "ssh",
     }
     virtual = json.loads((root / "qemu-core.json").read_text())
     assert virtual["services"] == [s for s in core["services"] if s["name"] != "input"]

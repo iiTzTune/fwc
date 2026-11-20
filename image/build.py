@@ -273,6 +273,17 @@ def populate_data(work, config=None):
     }
     core = {"services": services}
     if pi:
+        services[0]["command"].extend(["--listen", "0.0.0.0"])
+        (data / "ssh").mkdir(mode=0o700)
+        for name in ("wired", "ssh"):
+            services.append(
+                {
+                    "name": name,
+                    "command": [f"/usr/lib/fwc/{name}"],
+                    "restarts": 4,
+                    "window_secs": 60,
+                }
+            )
         services.append(capture)
         # The QEMU check shares the root slots and DATA with the board build.
         (work / "root/usr/share/fwc/qemu-core.json").write_text(

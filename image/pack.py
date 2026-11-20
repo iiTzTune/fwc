@@ -227,6 +227,14 @@ def disk():
             ],
             check=True,
         )
+        # Release the base GPIO hogs on joystick pins 5 and 6. An empty
+        # default group makes bcm2835_pinctrl_probe panic on the Zero 2 W.
+        gpio = subprocess.check_output(
+            ["fdtget", dtb, "/__symbols__", "gpio"], text=True
+        ).strip()
+        subprocess.run(
+            ["fdtput", "-d", dtb, gpio, "pinctrl-0", "pinctrl-names"], check=True
+        )
         files = {
             "config.txt": Path("/src/image/pi-zero-2w/config.txt"),
             dtb.name: dtb,
